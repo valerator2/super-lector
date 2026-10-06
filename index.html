@@ -1,1 +1,1213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Lector RSVP</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');
 
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080a10;--s1:#0e1018;--s2:#151820;--s3:#1a1e2a;
+  --b:rgba(255,255,255,.06);--b2:rgba(255,255,255,.11);
+  --t:#dde2f5;--t2:#7e89ab;--t3:#424b6a;
+  --ac:#7c6dfa;--ac2:#5a4dd4;--acb:rgba(124,109,250,.13);
+  --or:#ff6b35;--nm:#f5a623;--pl:#4ecb7a;--ok:#3ecf7a;
+  --ff:'Inter',sans-serif;--fm:'JetBrains Mono',monospace;--fs:'Lora',Georgia,serif;
+  --rad:16px;--shadow:0 8px 32px rgba(0,0,0,.4);
+}
+[data-light]{
+  --bg:#f5f6fa;--s1:#fff;--s2:#eceef6;--s3:#e2e5f0;
+  --b:rgba(0,0,0,.06);--b2:rgba(0,0,0,.11);
+  --t:#111422;--t2:#4a5270;--t3:#8892b0;
+  --ac:#5a3fcc;--ac2:#3d28a8;--acb:rgba(90,63,204,.1);
+  --or:#c03a10;--nm:#a06010;--pl:#1a8048;--ok:#1a8048;
+}
+html,body{min-height:100%;font-family:var(--ff);background:var(--bg);color:var(--t);-webkit-font-smoothing:antialiased}
+button{font-family:var(--ff);cursor:pointer;border:none;outline:none;background:none;-webkit-tap-highlight-color:transparent}
+
+/* HEADER */
+.hdr{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--b);padding-top:calc(13px + env(safe-area-inset-top,0px));position:sticky;top:0;background:rgba(8,10,16,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:50}
+.hw{flex:1;min-width:0;cursor:pointer}.hw:hover .ht{color:var(--ac)}
+.ht{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .15s;letter-spacing:-.2px}
+.hs{font-size:11px;color:var(--t3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbs{display:flex;gap:6px;flex-shrink:0}
+.hb{width:38px;height:38px;border-radius:10px;border:1px solid var(--b2);background:var(--s1);color:var(--t2);font-size:17px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.hb:hover{background:var(--s2);color:var(--t);border-color:var(--ac)}.hb:active{transform:scale(.91)}
+
+/* OVERLAY / DRAWER */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;backdrop-filter:blur(4px)}
+.ov.on{opacity:1;pointer-events:auto}
+.drw{position:fixed;left:0;top:0;bottom:0;width:300px;max-width:88vw;background:var(--s1);border-right:1px solid var(--b2);z-index:101;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.drw.on{transform:translateX(0)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:15px;border-bottom:1px solid var(--b);flex-shrink:0;padding-top:calc(15px + env(safe-area-inset-top,0px))}
+.dt{font-size:14px;font-weight:700;letter-spacing:-.1px}.dsub{font-size:11px;color:var(--t3);margin-top:2px}
+.xb{width:32px;height:32px;border-radius:9px;border:1px solid var(--b);color:var(--t3);font-size:15px;display:flex;align-items:center;justify-content:center;transition:.12s}
+.xb:hover{background:var(--s2);color:var(--t)}
+.dsc{overflow-y:auto;flex:1;padding:6px}
+.ph{padding:8px 10px 3px;font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;display:flex;justify-content:space-between;cursor:pointer}
+.ph:hover{color:var(--t2)}
+.pc{display:flex;flex-direction:column;gap:1px}.pc.col{display:none}
+.ch{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:10px;cursor:pointer;transition:.12s;width:100%;text-align:left}
+.ch:hover{background:var(--s2)}.ch.on{background:var(--acb)}
+.cn{font-size:11px;font-weight:600;font-family:var(--fm);color:var(--t3);min-width:28px}
+.ch.on .cn{color:var(--ac)}
+.cv{font-size:13px;font-weight:500;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch.on .cv{color:var(--ac)}
+.cm{font-size:11px;color:var(--t3);font-family:var(--fm);margin-top:1px}
+.cdone{color:var(--ok)}
+
+/* SHEETS */
+.sht{position:fixed;inset:0;background:var(--bg);z-index:102;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow-y:auto}
+.sht.on{transform:translateY(0)}
+.shh{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--b);position:sticky;top:0;background:rgba(8,10,16,.9);backdrop-filter:blur(16px);z-index:1;padding-top:calc(16px + env(safe-area-inset-top,0px))}
+.sht-title{font-size:16px;font-weight:700;letter-spacing:-.2px}
+.shb{padding:18px}
+
+/* BOOK GRID */
+.bkg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px}
+.bc{background:var(--s1);border:1.5px solid var(--b);border-radius:var(--rad);padding:15px 13px;text-align:left;cursor:pointer;transition:all .18s;width:100%}
+.bdel{position:absolute;top:6px;right:6px;background:rgba(255,80,80,.15);border:none;border-radius:50%;width:26px;height:26px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.6;transition:opacity .15s}.bdel:hover{opacity:1;background:rgba(255,80,80,.35)}
+.bc:hover{border-color:var(--ac);background:var(--acb);transform:translateY(-1px);box-shadow:0 4px 20px rgba(124,109,250,.15)}
+.bc:active{transform:scale(.96)}.bc.on{border-color:var(--ac);background:var(--acb)}
+.be{font-size:26px;display:block;margin-bottom:9px}
+.btl{font-size:13px;font-weight:600;color:var(--t);line-height:1.3;margin-bottom:3px}.bc.on .btl{color:var(--ac)}
+.bau{font-size:11px;color:var(--t3)}.bme{font-size:10px;color:var(--t3);font-family:var(--fm);margin-top:5px}
+.bsv{font-size:10px;color:var(--ac);font-family:var(--fm);margin-top:3px}
+.slbl{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px}
+.upz{border:2px dashed var(--b2);border-radius:var(--rad);padding:24px;text-align:center;cursor:pointer;transition:.18s;position:relative}
+.upz:hover{border-color:var(--ac);background:var(--acb)}
+.upz input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upi{font-size:30px;margin-bottom:7px}.upt{font-size:14px;font-weight:600;margin-bottom:3px}.ups{font-size:12px;color:var(--t3)}
+.upp{font-size:12px;color:var(--ac);font-family:var(--fm);margin-top:9px;min-height:18px}
+
+/* HOME */
+.home-hero{text-align:center;padding:32px 20px 28px;margin-bottom:8px}
+.home-icon{font-size:52px;margin-bottom:14px;display:block;filter:drop-shadow(0 4px 16px rgba(124,109,250,.4))}
+.home-title{font-size:26px;font-weight:700;letter-spacing:-.5px;background:linear-gradient(135deg,var(--t) 0%,var(--ac) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px}
+.home-sub{font-size:14px;color:var(--t3);line-height:1.6}
+
+/* READER */
+#reader{display:none;padding:14px 16px;flex-direction:column;gap:10px;max-width:600px;margin:0 auto;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+#reader.on{display:flex}
+
+/* CHAPTER BANNER */
+.bn{background:var(--s1);border:1px solid var(--b);border-radius:var(--rad);padding:13px 15px;display:flex;align-items:center;gap:11px}
+.bnl{flex:1;min-width:0}
+.bnp{font-size:10px;font-weight:700;color:var(--ac);letter-spacing:.07em;text-transform:uppercase;font-family:var(--fm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bnt{font-size:15px;font-weight:600;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px}
+.bnm{font-size:11px;color:var(--t3);font-family:var(--fm);margin-top:4px}
+.bnn{display:flex;flex-direction:column;gap:5px;flex-shrink:0}
+.nb{padding:7px 12px;border:1px solid var(--b2);border-radius:9px;font-size:12px;font-weight:500;color:var(--t2);transition:.12s;background:var(--s2)}
+.nb:hover:not(:disabled){background:var(--acb);border-color:var(--ac);color:var(--ac)}.nb:disabled{opacity:.3;cursor:default}
+
+/* MODE TABS */
+.mode-tabs{display:flex;border-bottom:1px solid var(--b);margin:-14px -16px 10px;background:var(--bg);position:sticky;top:calc(64px + env(safe-area-inset-top,0px));z-index:45}
+.mtab{flex:1;padding:11px 8px;font-size:13px;font-weight:600;color:var(--t3);text-align:center;cursor:pointer;border-bottom:2.5px solid transparent;transition:all .2s;background:none;border-left:none;border-right:none;border-top:none;letter-spacing:-.1px}
+.mtab.on{color:var(--ac);border-bottom-color:var(--ac)}
+
+/* RSVP DISPLAY */
+.stg{background:var(--s1);border:1px solid var(--b);border-radius:var(--rad);min-height:180px;display:flex;align-items:center;justify-content:center;position:relative;padding:20px;overflow:hidden}
+.stg::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(124,109,250,.04) 0%,transparent 70%);pointer-events:none}
+.sl{position:absolute;left:50%;top:8%;bottom:8%;transform:translateX(-50%);width:1.5px;background:var(--b2);border-radius:2px;pointer-events:none}
+#wd{font-size:36px;font-weight:500;font-family:var(--fm);text-align:center;line-height:1.15;user-select:none;letter-spacing:-.3px;z-index:1;width:100%}
+#wd .orp{color:var(--or);text-shadow:0 0 12px rgba(255,107,53,.4)}
+#wd .kw{color:var(--ac);font-weight:700}
+#wd .dim{color:var(--t3)}
+.idle{font-size:14px;color:var(--t3);text-align:center;line-height:1.7}
+
+/* KW OVERLAY */
+.kwo{position:fixed;left:0;right:0;top:0;bottom:0;background:var(--bg);z-index:60;display:flex;flex-direction:column;padding:calc(18px + env(safe-area-inset-top,0px)) 18px calc(18px + env(safe-area-inset-bottom,0px));opacity:0;pointer-events:none;transition:opacity .22s}
+.kwo.on{opacity:1;pointer-events:auto}
+.kwot{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;font-family:var(--fm);margin-bottom:12px;flex-shrink:0}
+.kwob{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding:8px 0;-webkit-overflow-scrolling:touch}
+.kwos{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;font-family:var(--fm);margin-bottom:8px}
+.kwotg{display:flex;flex-wrap:wrap;gap:8px}
+.tag{padding:9px 16px;border-radius:22px;font-weight:500;border:1px solid;animation:tagpop .22s ease both;line-height:1;font-size:14px}
+@keyframes tagpop{from{opacity:0;transform:scale(.7) translateY(4px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.tnm{background:rgba(245,166,35,.1);border-color:rgba(245,166,35,.35);color:var(--nm)}
+.ts1{background:var(--s2);border-color:var(--b2);color:var(--t2)}
+.ts2{background:var(--acb);border-color:rgba(124,109,250,.35);color:var(--ac)}
+.ts3{font-size:15px;font-weight:700;background:var(--acb);border-color:rgba(124,109,250,.5);color:var(--ac)}
+.kwod{height:1px;background:var(--b);flex-shrink:0}
+.kwof{display:flex;align-items:center;gap:9px;flex-shrink:0;padding-top:12px;border-top:1px solid var(--b)}
+.kwobw{flex:1;height:3px;background:var(--s3);border-radius:2px;overflow:hidden}
+.kwobar{height:100%;background:var(--ac);border-radius:2px;width:100%;transition:width linear}
+.kwose{font-size:12px;color:var(--t3);font-family:var(--fm);min-width:24px}
+.kwobtn{font-size:13px;font-weight:600;color:var(--ac);padding:9px 20px;border-radius:10px;border:1.5px solid var(--ac);background:var(--acb);transition:.15s;flex-shrink:0}
+.kwobtn:hover{background:var(--ac);color:#fff}.kwobtn:active{transform:scale(.95)}
+
+/* PROGRESS */
+.pt{height:8px;background:var(--s2);border-radius:4px;cursor:pointer;position:relative;touch-action:none}
+.pt:hover .pf,.pt.drag .pf{filter:brightness(1.15)}
+.pf{height:100%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:4px;transition:width .15s;pointer-events:none;position:relative}
+.pf::after{content:'';position:absolute;right:-8px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;background:var(--ac);box-shadow:0 0 0 3px var(--s1),0 2px 8px rgba(124,109,250,.4);opacity:0;transition:opacity .15s}
+.pt:hover .pf::after,.pt.drag .pf::after{opacity:1}
+.pr{display:flex;justify-content:space-between;font-size:11px;color:var(--t3);font-family:var(--fm);margin-top:5px}
+
+/* TIME COUNTERS */
+.tcr{display:flex;background:var(--s1);border:1px solid var(--b);border-radius:var(--rad);overflow:hidden}
+.tc{flex:1;padding:12px 8px;text-align:center}
+.tcv{font-size:20px;font-weight:700;font-family:var(--fm);color:var(--ac);line-height:1}
+.tcl{font-size:10px;color:var(--t3);margin-top:4px;letter-spacing:.03em}
+.tcs{width:1px;background:var(--b);flex-shrink:0}
+
+/* CONTROLS */
+.cr{display:flex;align-items:center;justify-content:center;gap:14px}
+.cb{width:46px;height:46px;border-radius:50%;border:1.5px solid var(--b2);background:var(--s1);color:var(--t2);font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .14s;font-weight:500}
+.cb:hover{background:var(--s2);color:var(--t);border-color:var(--ac)}.cb:active{transform:scale(.91)}
+.cb.big{width:64px;height:64px;background:var(--ac);border-color:var(--ac);color:#fff;font-size:28px;box-shadow:0 6px 24px rgba(124,109,250,.45)}
+.cb.big:hover{background:var(--ac2);box-shadow:0 8px 28px rgba(124,109,250,.55)}
+
+/* SPEED SLIDER */
+.sr{display:flex;align-items:center;gap:12px}
+.sl2{font-size:12px;color:var(--t3);white-space:nowrap}
+input[type=range]{flex:1;height:5px;appearance:none;background:var(--s2);border-radius:3px}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:20px;height:20px;border-radius:50%;background:var(--ac);cursor:pointer;box-shadow:0 2px 8px rgba(124,109,250,.45)}
+.sv{font-size:14px;font-weight:700;color:var(--ac);font-family:var(--fm);min-width:68px;text-align:right}
+
+/* BLOCK / TOGGLES */
+.or{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.og{display:flex;align-items:center;gap:7px}
+.ol{font-size:12px;color:var(--t3)}
+.bb{padding:7px 13px;border:1.5px solid var(--b2);border-radius:9px;font-size:13px;font-weight:500;color:var(--t3);transition:.12s;background:var(--s1)}
+.bb.on{background:var(--acb);border-color:var(--ac);color:var(--ac)}
+.bb:hover:not(.on){background:var(--s2);color:var(--t)}
+.ti{display:flex;align-items:center;gap:7px;cursor:pointer}
+.tl{font-size:13px;color:var(--t2)}
+.tg{width:36px;height:20px;background:var(--s3);border-radius:10px;position:relative;transition:.2s;border:1px solid var(--b2);flex-shrink:0}
+.tg.on{background:var(--ac)}
+.tg::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.tg.on::after{left:19px}
+
+/* RESULTS / FINISH SCREEN */
+.res{background:var(--s1);border:1px solid var(--b);border-radius:var(--rad);padding:20px 16px;width:100%;text-align:center}
+.rl{font-size:10px;color:var(--t3);font-family:var(--fm);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.rt{font-size:15px;font-weight:700;margin-bottom:4px;letter-spacing:-.1px}
+.rp{font-size:12px;color:var(--t2);margin-bottom:16px}
+.rbs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.rbp{padding:11px 22px;background:var(--ac);color:#fff;border-radius:11px;font-size:14px;font-weight:600;transition:.15s;box-shadow:0 4px 16px rgba(124,109,250,.3)}
+.rbp:hover{background:var(--ac2);box-shadow:0 6px 20px rgba(124,109,250,.4)}.rbp:active{transform:scale(.95)}
+.rbs2{padding:10px 16px;background:var(--s2);border:1px solid var(--b2);color:var(--t2);border-radius:11px;font-size:13px;transition:.15s}
+.rbs2:hover{background:var(--s3);color:var(--t)}
+
+/* PAGE MODE */
+#pg-view{display:none;padding-bottom:155px}
+.pg-txt{padding:0 0 20px;font-family:var(--fs);line-height:1.95;color:var(--t);font-size:18px}
+.pw{display:inline;padding:0 1px;cursor:pointer;border-radius:2px}
+.pw.hl{text-decoration:underline;text-decoration-color:var(--ac);text-decoration-thickness:2.5px;text-underline-offset:3px}
+.pw.read{color:var(--t3)}
+.pw.kwh{background:rgba(245,166,35,.15);border-radius:2px;padding:0 2px}
+.pw.nmh{color:#c890ff;font-weight:600}
+.pw.plh{color:#5dd6b3;font-weight:600}
+.pp{margin-bottom:1.15em;display:block}
+#pg-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(8,10,16,.92);border-top:1px solid var(--b);z-index:70;padding:9px 16px;padding-bottom:calc(9px + env(safe-area-inset-bottom,0px));backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);display:none}
+.pg-bar-in{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.pg-prog{display:flex;align-items:center;gap:8px}
+.pg-trk{flex:1;height:3px;background:var(--s3);border-radius:2px;cursor:pointer}
+.pg-fill2{height:100%;background:linear-gradient(90deg,var(--ac2),var(--ac));border-radius:2px;width:0%;transition:width .3s}
+.pg-ctrl{display:flex;align-items:center;justify-content:center;gap:10px}
+.pcb{height:38px;padding:0 14px;border-radius:10px;border:1.5px solid var(--b2);background:var(--s1);color:var(--t2);font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;transition:all .12s;gap:5px}
+.pcb:hover{background:var(--s2);color:var(--t);border-color:var(--ac)}.pcb:active{transform:scale(.93)}
+.pcb.big{width:52px;height:52px;padding:0;border-radius:50%;background:var(--ac);border-color:var(--ac);color:#fff;font-size:22px;box-shadow:0 4px 18px rgba(124,109,250,.4)}
+.pcb.big:hover{background:var(--ac2)}
+.pg-opts{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.pgszb{padding:5px 10px;border:1.5px solid var(--b2);border-radius:8px;font-size:12px;font-weight:500;color:var(--t3);cursor:pointer;transition:.12s;background:var(--s1)}
+.pgszb.on{background:var(--acb);border-color:var(--ac);color:var(--ac)}
+.hl-tog{padding:5px 11px;border:1.5px solid var(--b2);border-radius:20px;font-size:11px;font-weight:600;color:var(--t3);cursor:pointer;transition:all .15s;background:var(--s1)}
+.hl-tog.on.kw{border-color:var(--nm);color:var(--nm);background:rgba(245,166,35,.1)}
+.hl-tog.on.nm{border-color:#c890ff;color:#c890ff;background:rgba(200,144,255,.1)}
+
+/* QUIZ */
+.qpanel{position:fixed;inset:0;background:var(--bg);z-index:90;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0px)}
+.qpanel.on{transform:translateY(0)}
+.qp-in{max-width:600px;margin:0 auto;padding:18px;padding-top:calc(18px + env(safe-area-inset-top,0px))}
+.q-hdl{width:36px;height:4px;background:var(--b2);border-radius:2px;margin:0 auto 18px}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hw" onclick="openLib()">
+    <div class="ht" id="ht">Lector RSVP</div>
+    <div class="hs" id="hs">Elige un libro para empezar</div>
+  </div>
+  <div class="hbs">
+    <button class="hb" id="ibtn" style="display:none" onclick="openDrw()">☰</button>
+    <button class="hb" id="kbtn" style="display:none" onclick="peekKw()">🔑</button>
+    <button class="hb" onclick="openLib()">📚</button>
+    <button class="hb" onclick="openStats()">📊</button>
+    <button class="hb" id="langbtn" onclick="cycleLang()" title="Change language">ES</button>
+    <button class="hb" id="thbtn" onclick="toggleTheme()">☀</button>
+  </div>
+</header>
+
+<div class="ov" id="ov" onclick="closeAll()"></div>
+
+<nav class="drw" id="drw">
+  <div class="dh">
+    <div><div class="dt">Capítulos</div><div class="ds" id="ds"></div></div>
+    <button class="xb" onclick="closeDrw()">✕</button>
+  </div>
+  <div class="dsc" id="chl"></div>
+</nav>
+
+<div class="sht" id="sht">
+  <div class="shh"><span class="sht-title">📚 Biblioteca</span><button class="xb" onclick="closeLib()">✕</button></div>
+  <div class="shb">
+    <div class="slbl">Libros incluidos</div>
+    <div class="bkg" id="bkg"></div>
+    <div class="slbl">Añadir libro (EPUB · TXT)</div>
+    <div class="upz"><input type="file" accept=".epub,.txt" id="fi" onchange="handleFile(this)">
+      <div class="upi">📥</div><div class="upt">Subir tu libro</div><div class="ups">EPUB o TXT</div>
+      <div class="upp" id="upp"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS SHEET -->
+<div class="sht" id="statsht">
+  <div class="shh"><span class="sht-title">📊 Mis estadísticas</span><button class="xb" onclick="closeStats()">✕</button></div>
+  <div class="shb" id="statsBody">
+    <div style="text-align:center;padding:40px 0;color:var(--t3);font-size:14px">Cargando...</div>
+  </div>
+</div>
+
+<div id="home">
+  <div class="slbl">Biblioteca</div>
+  <div class="bkg" id="hgrid"></div>
+  <div class="slbl">Añadir libro</div>
+  <div class="upz"><input type="file" accept=".epub,.txt" onchange="handleFile(this)">
+    <div class="upi">📥</div><div class="upt">Subir EPUB o TXT</div><div class="ups">Se procesa en tu dispositivo</div>
+    <div class="upp" id="upp2"></div>
+  </div>
+</div>
+
+<div id="reader">
+  <div class="mode-tabs"><button class="mtab on" id="mtab-r" onclick="pgSwitch('rsvp')">⚡ RSVP</button><button class="mtab" id="mtab-p" onclick="pgSwitch('page')">📄 Página</button></div>
+  <div id="rsvp-content">
+  <div class="bn">
+    <div class="bnl">
+      <div class="bnp" id="bnp"></div>
+      <div class="bnt" id="bnt">—</div>
+      <div class="bnm" id="bnm">—</div>
+    </div>
+    <div class="bnn">
+      <button class="nb" id="pb" onclick="goChap(C-1)" disabled>← Ant.</button>
+      <button class="nb" id="nb" onclick="goChap(C+1)" disabled>Sig. →</button>
+    </div>
+  </div>
+  <div class="stg">
+    <div class="sl"></div>
+    <div id="wd" class="idle">Pulsa ▶ para comenzar</div>
+    <div class="kwo" id="kwo">
+      <div class="kwot">Antes de leer</div>
+      <div class="kwob" id="kwob"></div>
+      <div class="kwof">
+        <div class="kwobw"><div class="kwobar" id="kwobar"></div></div>
+        <span class="kwose" id="kwose">8s</span>
+        <button class="kwobtn" id="kwobtn">Leer →</button>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="pt" id="pt" tabindex="0"><div class="pf" id="pf" style="width:0%"></div></div>
+    <div class="pr"><span id="pct">0%</span><span id="pwd">— / —</span><span id="ptm">—</span></div>
+  </div>
+  <div class="tcr">
+    <div class="tc"><div class="tcv" id="tc1">—</div><div class="tcl">Cap. restante</div></div>
+    <div class="tcs"></div>
+    <div class="tc"><div class="tcv" id="tc2">—</div><div class="tcl">Libro restante</div></div>
+    <div class="tcs"></div>
+    <div class="tc"><div class="tcv" id="tc3">250</div><div class="tcl">PPM</div></div>
+  </div>
+  <div class="cr">
+    <button class="cb" onclick="adjPPM(-50)">−</button>
+    <button class="cb" onclick="doRestart()">↺</button>
+    <button class="cb big" id="plbtn" onclick="togglePlay()">▶</button>
+    <button class="cb" onclick="adjPPM(50)">+</button>
+  </div>
+  <div class="sr">
+    <span class="sl2">Velocidad</span>
+    <input type="range" min="150" max="800" step="10" value="250" id="spsl" oninput="setPPM(+this.value)">
+    <span class="sv" id="spv">250 PPM</span>
+  </div>
+  <div class="or">
+    <div class="og">
+      <span class="ol">Bloque</span>
+      <button class="bb on" onclick="setBlock(1,this)">1</button>
+      <button class="bb" onclick="setBlock(2,this)">2</button>
+      <button class="bb" onclick="setBlock(3,this)">3</button>
+    </div>
+    <div class="ti" onclick="document.getElementById('torp').classList.toggle('on')">
+      <div class="tg on" id="torp"></div><span class="tl">ORP</span>
+    </div>
+    <div class="ti" onclick="document.getElementById('tkw').classList.toggle('on')">
+      <div class="tg" id="tkw"></div><span class="tl">Clave</span>
+    </div>
+  </div>
+  </div><!-- end rsvp-content -->
+  <div id="pg-view"><div class="pg-txt" id="pg-txt" style="font-size:18px"></div></div>
+</div>
+
+<div id="pg-bar"><div class="pg-bar-in"><div class="pg-prog"><div class="pg-trk" id="pg-trk" onclick="pgTrkClick(event)"><div class="pg-fill2" id="pg-fill2"></div></div><span id="pg-pct2" style="font-size:11px;color:var(--t3);font-family:var(--fm);min-width:32px;text-align:right">0%</span></div><div class="pg-ctrl"><button class="pcb" id="pg-prev" onclick="goChap(C-1)" title="Capítulo anterior">⏮ Ant.</button><button class="pcb big" id="pg-play" onclick="pgPlay()">▶</button><button class="pcb" id="pg-next" onclick="goChap(C+1)" title="Capítulo siguiente">Sig. ⏭</button></div><div style="display:flex;align-items:center;gap:8px;padding:0 2px"><button class="pcb" style="width:32px;height:32px;font-size:14px" onclick="pgAdj(-25)">−</button><input type="range" min="60" max="500" step="10" value="200" id="pg-spsl" oninput="pgAdj2(+this.value)" style="flex:1;height:4px;appearance:none;background:var(--s2);border-radius:2px"><button class="pcb" style="width:32px;height:32px;font-size:14px" onclick="pgAdj(25)">+</button><span id="pg-spv" style="font-size:13px;font-weight:600;color:var(--ac);font-family:var(--fm);min-width:56px;text-align:right">200 PPM</span></div><div class="pg-opts"><div style="display:flex;gap:5px"><button class="pgszb" onclick="pgSz(16,this)" style="font-size:11px">A</button><button class="pgszb on" onclick="pgSz(18,this)" style="font-size:12px">A</button><button class="pgszb" onclick="pgSz(20,this)" style="font-size:13px">A</button><button class="pgszb" onclick="pgSz(23,this)" style="font-size:15px">A</button></div><div style="display:flex;gap:6px"><button class="hl-tog kw on" id="hltog-kw" onclick="pgHl('kw')">🟡 Clave</button><button class="hl-tog nm on" id="hltog-nm" onclick="pgHl('nm')">🟣 Personas y lugares</button></div></div></div></div>
+
+<script>
+const PRELOADED=[
+{"id":"solar","title":"El sistema solar / Solar System / Système Solaire","author":"Wikipedia (CC BY-SA 4.0)","e":"🌍","meta":[{"p":"Wikipedia (CC BY-SA)","n":"1","title":"El Sol","w":118,"kw":[{"w":"estrella","f":0.5},{"w":"central","f":0.5},{"w":"sistema","f":0.5},{"w":"solar","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"2","title":"Los planetas interiores","w":101,"kw":[{"w":"cuatro","f":0.5},{"w":"planetas","f":0.5},{"w":"interiores","f":0.5},{"w":"sistema","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"3","title":"Los planetas exteriores","w":102,"kw":[{"w":"cinturón","f":0.5},{"w":"asteroides","f":0.5},{"w":"encuentran","f":0.5},{"w":"cuatro","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"4","title":"Formación y exploración","w":102,"kw":[{"w":"sistema","f":0.5},{"w":"millones","f":0.5},{"w":"partir","f":0.5},{"w":"interestelar","f":0.5}],"names":[],"places":[]}],"texts":["El Sol es la estrella central del sistema solar. Es una esfera de plasma caliente con un diámetro de unos 1,4 millones de kilómetros, aproximadamente 109 veces el diámetro de la Tierra. Contiene el 99,86% de la masa total del sistema solar. En su núcleo, las reacciones de fusión nuclear transforman hidrógeno en helio, liberando enormes cantidades de energía. La temperatura superficial del Sol es de unos 5.500 grados Celsius, mientras que su núcleo alcanza los 15 millones de grados. La luz solar tarda unos 8 minutos en llegar a la Tierra. El Sol tiene una edad de unos 4.600 millones de años y se encuentra aproximadamente en la mitad de su vida. Fuente: Wikipedia (CC BY-SA 4.0).","Los cuatro planetas interiores del sistema solar son Mercurio, Venus, la Tierra y Marte. Se denominan planetas rocosos o terrestres porque están compuestos principalmente de silicatos y metales. Mercurio es el más pequeño y el más cercano al Sol, con temperaturas que oscilan entre -180 y 430 grados Celsius. Venus es el planeta más caliente debido a su densa atmósfera de dióxido de carbono. La Tierra es el único planeta conocido que alberga vida. Marte, conocido como el planeta rojo, tiene la montaña más alta del sistema solar: el volcán Olimpo, con 22 kilómetros de altura. Fuente: Wikipedia (CC BY-SA 4.0).","Más allá del cinturón de asteroides se encuentran los cuatro planetas gigantes. Júpiter es el más grande del sistema solar, con una masa dos veces y media mayor que la de todos los demás planetas juntos. Saturno es famoso por sus espectaculares anillos de hielo y roca. Urano y Neptuno son gigantes de hielo, compuestos principalmente de agua, metano y amoníaco en estado sólido. Neptuno tiene los vientos más fuertes del sistema solar, con velocidades de hasta 2.100 kilómetros por hora. Más allá de Neptuno se encuentra el cinturón de Kuiper, donde orbita el planeta enano Plutón. Fuente: Wikipedia (CC BY-SA 4.0).","El sistema solar se formó hace unos 4.600 millones de años a partir de una nube de gas y polvo interestelar. La gravedad hizo que esta nube colapsara, formando el Sol en el centro y los planetas a su alrededor. La exploración espacial ha permitido conocer mejor estos mundos. La NASA ha enviado sondas a todos los planetas, incluyendo las sondas Voyager, que ya han abandonado el sistema solar. En 2015, la sonda New Horizons sobrevoló Plutón, revelando montañas de hielo y llanuras de nitrógeno. La misión Mars Perseverance busca actualmente signos de vida pasada en Marte. Fuente: Wikipedia (CC BY-SA 4.0)."],"meta_en":[{"p":"Wikipedia (CC BY-SA)","n":"1","title":"The Sun","w":116,"kw":[{"w":"center","f":0.5},{"w":"system","f":0.5},{"w":"nearly","f":0.5},{"w":"perfect","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"2","title":"The inner planets","w":101,"kw":[{"w":"planets","f":0.5},{"w":"system","f":0.5},{"w":"mercury","f":0.5},{"w":"venus","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"3","title":"The outer planets","w":97,"kw":[{"w":"beyond","f":0.5},{"w":"asteroid","f":0.5},{"w":"planets","f":0.5},{"w":"jupiter","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"4","title":"Formation and exploration","w":90,"kw":[{"w":"system","f":0.5},{"w":"formed","f":0.5},{"w":"billion","f":0.5},{"w":"gravitational","f":0.5}],"names":[],"places":[]}],"texts_en":["The Sun is the star at the center of the Solar System. It is a nearly perfect sphere of hot plasma, with an internal convective motion that generates a magnetic field via a dynamo process. It is by far the most important source of energy for life on Earth. Its diameter is about 1.39 million kilometers, roughly 109 times the diameter of Earth. The Sun's mass is about 330,000 times that of Earth and accounts for about 99.86% of the total mass of the Solar System. The Sun's core temperature reaches about 15 million degrees Celsius, where nuclear fusion converts hydrogen into helium. Sunlight takes about 8 minutes to reach Earth. Source: Wikipedia (CC BY-SA 4.0).","The four inner planets of the Solar System are Mercury, Venus, Earth and Mars. They are called terrestrial planets because they are composed mainly of silicate rocks and metals. Mercury is the smallest planet and closest to the Sun, with extreme temperature variations. Venus has the hottest surface of any planet due to a runaway greenhouse effect. Earth is the only known planet to harbor life and has one natural satellite, the Moon. Mars is called the Red Planet due to its iron oxide surface and has the largest volcano in the Solar System, Olympus Mons. Source: Wikipedia (CC BY-SA 4.0).","Beyond the asteroid belt lie the four giant planets. Jupiter is the largest planet, with a mass more than twice that of all other planets combined. Saturn is recognizable by its prominent ring system made of ice and rock. Uranus and Neptune are ice giants, composed largely of water, methane and ammonia ices. Neptune has the strongest winds in the Solar System, reaching speeds of 2,100 kilometers per hour. Beyond Neptune lies the Kuiper Belt, where the dwarf planet Pluto orbits. The outermost boundary of the Solar System is the Oort Cloud. Source: Wikipedia (CC BY-SA 4.0).","The Solar System formed about 4.6 billion years ago from the gravitational collapse of an interstellar molecular cloud. Most of the collapsing mass collected in the center, forming the Sun, while the rest flattened into a disk that became the planets. Space exploration has transformed our understanding of the Solar System. NASA's Voyager probes have left the Solar System entirely. In 2015, New Horizons flew past Pluto, revealing mountains of water ice. The Mars Perseverance rover is currently searching for signs of past microbial life. Source: Wikipedia (CC BY-SA 4.0)."],"meta_fr":[{"p":"Wikipedia (CC BY-SA)","n":"1","title":"Le Soleil","w":104,"kw":[{"w":"soleil","f":0.5},{"w":"l'étoile","f":0.5},{"w":"centre","f":0.5},{"w":"système","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"2","title":"Les planètes intérieures","w":89,"kw":[{"w":"quatre","f":0.5},{"w":"planètes","f":0.5},{"w":"intérieures","f":0.5},{"w":"système","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"3","title":"Les planètes extérieures","w":79,"kw":[{"w":"au-delà","f":0.5},{"w":"ceinture","f":0.5},{"w":"d'astéroïdes","f":0.5},{"w":"trouvent","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"4","title":"Formation et exploration","w":78,"kw":[{"w":"système","f":0.5},{"w":"solaire","f":0.5},{"w":"environ","f":0.5},{"w":"milliards","f":0.5}],"names":[],"places":[]}],"texts_fr":["Le Soleil est l'étoile au centre du système solaire. C'est une sphère de plasma chaud dont le diamètre est d'environ 1,4 million de kilomètres, soit environ 109 fois celui de la Terre. Il contient 99,86% de la masse totale du système solaire. Dans son noyau, les réactions de fusion nucléaire transforment l'hydrogène en hélium, libérant d'énormes quantités d'énergie. La température de surface du Soleil est d'environ 5 500 degrés Celsius. La lumière solaire met environ 8 minutes pour atteindre la Terre. Le Soleil a environ 4,6 milliards d'années et se trouve à peu près à mi-chemin de sa vie. Source: Wikipedia (CC BY-SA 4.0).","Les quatre planètes intérieures du système solaire sont Mercure, Vénus, la Terre et Mars. Elles sont appelées planètes rocheuses car elles sont composées principalement de silicates et de métaux. Mercure est la plus petite et la plus proche du Soleil. Vénus est la planète la plus chaude en raison de son atmosphère dense. La Terre est la seule planète connue abritant la vie. Mars, connue comme la planète rouge, possède le plus grand volcan du système solaire: Olympus Mons, avec 22 kilomètres de hauteur. Source: Wikipedia (CC BY-SA 4.0).","Au-delà de la ceinture d'astéroïdes se trouvent les quatre planètes géantes. Jupiter est la plus grande du système solaire. Saturne est célèbre pour ses spectaculaires anneaux de glace et de roche. Uranus et Neptune sont des géantes de glace. Neptune possède les vents les plus forts du système solaire. Au-delà de Neptune se trouve la ceinture de Kuiper, où orbite la planète naine Pluton. La limite extérieure du système solaire est le nuage d'Oort. Source: Wikipedia (CC BY-SA 4.0).","Le système solaire s'est formé il y a environ 4,6 milliards d'années à partir de l'effondrement gravitationnel d'un nuage moléculaire interstellaire. L'exploration spatiale a permis de mieux connaître ces mondes. La NASA a envoyé des sondes vers toutes les planètes, y compris les sondes Voyager qui ont quitté le système solaire. En 2015, la sonde New Horizons a survolé Pluton. Le rover Mars Perseverance recherche actuellement des signes de vie passée sur Mars. Source: Wikipedia (CC BY-SA 4.0)."]},
+{"id":"internet","title":"Internet","author":"Wikipedia (CC BY-SA 4.0)","e":"🌐","meta":[{"p":"Wikipedia (CC BY-SA)","n":"1","title":"Historia de Internet","w":107,"kw":[{"w":"internet","f":0.5},{"w":"orígenes","f":0.5},{"w":"arpanet","f":0.5},{"w":"creada","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"2","title":"Cómo funciona","w":104,"kw":[{"w":"internet","f":0.5},{"w":"funciona","f":0.5},{"w":"mediante","f":0.5},{"w":"arquitectura","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"3","title":"Servicios e impacto","w":85,"kw":[{"w":"principales","f":0.5},{"w":"servicios","f":0.5},{"w":"internet","f":0.5},{"w":"incluyen","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"4","title":"Gobernanza y futuro","w":89,"kw":[{"w":"gobernanza","f":0.5},{"w":"internet","f":0.5},{"w":"realiza","f":0.5},{"w":"través","f":0.5}],"names":[],"places":[]}],"texts":["Internet tiene sus orígenes en ARPANET, una red creada en 1969 por el Departamento de Defensa de los Estados Unidos para conectar computadoras universitarias. En 1989, Tim Berners-Lee inventó la World Wide Web en el CERN, creando el sistema de páginas enlazadas que usamos hoy. Durante los años noventa, Internet se expandió masivamente al público general. En 1993 apareció el primer navegador gráfico, Mosaic, que permitió navegar por la web de forma visual. A finales de los noventa, el auge de las empresas .com transformó la economía mundial. En 2004, el lanzamiento de Facebook marcó el inicio de las redes sociales modernas. Fuente: Wikipedia (CC BY-SA 4.0).","Internet funciona mediante una arquitectura descentralizada basada en el protocolo TCP/IP. Los datos se dividen en pequeños paquetes que viajan de forma independiente por la red, eligiendo la ruta más eficiente hasta su destino, donde se reensamblan. Los proveedores de servicios de Internet (ISP) conectan a los usuarios con la red global. Los nombres de dominio como wikipedia.org se traducen a direcciones IP numéricas mediante el sistema DNS. Los servidores web almacenan las páginas y las envían a los navegadores cuando son solicitadas. La fibra óptica transporta la mayoría del tráfico de Internet a la velocidad de la luz. Fuente: Wikipedia (CC BY-SA 4.0).","Los principales servicios de Internet incluyen la World Wide Web, el correo electrónico, la mensajería instantánea y el streaming de audio y vídeo. El comercio electrónico ha transformado la economía global. Las redes sociales han cambiado la forma en que las personas se comunican. La educación en línea ha democratizado el acceso al conocimiento. A principios de 2020, Internet contaba con más de 5.000 millones de usuarios. El tráfico de vídeo representa más del 80% del tráfico total de Internet. Fuente: Wikipedia (CC BY-SA 4.0).","La gobernanza de Internet se realiza a través de organismos como la ICANN, que gestiona los nombres de dominio, y la IETF, que desarrolla los estándares técnicos. La neutralidad de la red es un principio que garantiza que todos los datos sean tratados igualmente. El Internet de las Cosas conecta miles de millones de dispositivos físicos. El despliegue del 5G promete velocidades de hasta 10 veces superiores al 4G. La inteligencia artificial está transformando la forma en que buscamos y procesamos información en línea. Fuente: Wikipedia (CC BY-SA 4.0)."],"meta_en":[{"p":"Wikipedia (CC BY-SA)","n":"1","title":"History of the Internet","w":91,"kw":[{"w":"internet","f":0.5},{"w":"origins","f":0.5},{"w":"arpanet","f":0.5},{"w":"network","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"2","title":"How it works","w":88,"kw":[{"w":"internet","f":0.5},{"w":"operates","f":0.5},{"w":"through","f":0.5},{"w":"decentralized","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"3","title":"Services and impact","w":65,"kw":[{"w":"internet","f":0.5},{"w":"services","f":0.5},{"w":"include","f":0.5},{"w":"email","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"4","title":"Governance and future","w":71,"kw":[{"w":"internet","f":0.5},{"w":"governance","f":0.5},{"w":"carried","f":0.5},{"w":"through","f":0.5}],"names":[],"places":[]}],"texts_en":["The Internet has its origins in ARPANET, a network created in 1969 by the United States Department of Defense to connect university computers. In 1989, Tim Berners-Lee invented the World Wide Web at CERN, creating the system of linked pages we use today. During the 1990s, the Internet expanded massively to the general public. The first graphical browser, Mosaic, appeared in 1993. The dot-com boom of the late 1990s transformed the global economy. In 2004, the launch of Facebook marked the beginning of modern social media. Source: Wikipedia (CC BY-SA 4.0).","The Internet operates through a decentralized architecture based on the TCP/IP protocol. Data is divided into small packets that travel independently through the network, choosing the most efficient route to their destination where they are reassembled. Internet Service Providers (ISPs) connect users to the global network. Domain names like wikipedia.org are translated to numerical IP addresses through the DNS system. Web servers store pages and send them to browsers when requested. Fiber optic cables carry most Internet traffic at the speed of light. Source: Wikipedia (CC BY-SA 4.0).","The main Internet services include the World Wide Web, email, instant messaging, and audio and video streaming. E-commerce has transformed the global economy. Social networks have changed the way people communicate. Online education has democratized access to knowledge. By early 2020, the Internet had more than 5 billion users. Video traffic accounts for more than 80% of total Internet traffic. Source: Wikipedia (CC BY-SA 4.0).","Internet governance is carried out through organizations such as ICANN, which manages domain names, and the IETF, which develops technical standards. Net neutrality is a principle that ensures all data is treated equally. The Internet of Things connects billions of physical devices. The deployment of 5G promises speeds up to 10 times faster than 4G. Artificial intelligence is transforming how we search and process information online. Source: Wikipedia (CC BY-SA 4.0)."],"meta_fr":[{"p":"Wikipedia (CC BY-SA)","n":"1","title":"Histoire d'Internet","w":84,"kw":[{"w":"internet","f":0.5},{"w":"trouve","f":0.5},{"w":"origines","f":0.5},{"w":"arpanet","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"2","title":"Comment ça fonctionne","w":74,"kw":[{"w":"internet","f":0.5},{"w":"fonctionne","f":0.5},{"w":"architecture","f":0.5},{"w":"décentralisée","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"3","title":"Services et impact","w":61,"kw":[{"w":"principaux","f":0.5},{"w":"services","f":0.5},{"w":"internet","f":0.5},{"w":"comprennent","f":0.5}],"names":[],"places":[]},{"p":"Wikipedia (CC BY-SA)","n":"4","title":"Gouvernance et avenir","w":66,"kw":[{"w":"gouvernance","f":0.5},{"w":"d'internet","f":0.5},{"w":"assurée","f":0.5},{"w":"organismes","f":0.5}],"names":[],"places":[]}],"texts_fr":["Internet trouve ses origines dans ARPANET, un réseau créé en 1969 par le département américain de la Défense. En 1989, Tim Berners-Lee a inventé le World Wide Web au CERN. Dans les années 1990, Internet s'est développé massivement auprès du grand public. Le premier navigateur graphique, Mosaic, est apparu en 1993. L'essor des entreprises .com à la fin des années 1990 a transformé l'économie mondiale. En 2004, le lancement de Facebook a marqué le début des réseaux sociaux modernes. Source: Wikipedia (CC BY-SA 4.0).","Internet fonctionne grâce à une architecture décentralisée basée sur le protocole TCP/IP. Les données sont divisées en petits paquets qui voyagent indépendamment sur le réseau. Les fournisseurs d'accès à Internet (FAI) connectent les utilisateurs au réseau mondial. Les noms de domaine sont traduits en adresses IP numériques via le système DNS. Les câbles à fibre optique transportent la majeure partie du trafic Internet à la vitesse de la lumière. Source: Wikipedia (CC BY-SA 4.0).","Les principaux services Internet comprennent le Web, le courrier électronique, la messagerie instantanée et le streaming. Le commerce électronique a transformé l'économie mondiale. Les réseaux sociaux ont changé la façon dont les gens communiquent. Au début de 2020, Internet comptait plus de 5 milliards d'utilisateurs. Le trafic vidéo représente plus de 80% du trafic Internet total. Source: Wikipedia (CC BY-SA 4.0).","La gouvernance d'Internet est assurée par des organismes comme l'ICANN et l'IETF. La neutralité du net garantit que toutes les données sont traitées de manière égale. L'Internet des Objets connecte des milliards d'appareils physiques. Le déploiement de la 5G promet des vitesses jusqu'à 10 fois supérieures à la 4G. L'intelligence artificielle transforme la façon dont nous recherchons des informations en ligne. Source: Wikipedia (CC BY-SA 4.0)."]}
+];
+let books=[...PRELOADED],B=null,C=0,ws=[],wi=0,ppm=250,bs=1,playing=false,timer=null;
+let readCh={},chapProg={},isDark=true,kwTimer=null;
+let sess={start:0,pauses:0,ptot:0,plast:0,ppms:[250],discon:0};
+
+// PERSIST
+const SK='rsvp6';
+function save(){if(!B)return;try{const d=JSON.parse(localStorage.getItem(SK)||'{}');d[B.id]={c:C,i:wi};localStorage.setItem(SK,JSON.stringify(d));}catch(e){}}
+function ld(id){try{return JSON.parse(localStorage.getItem(SK)||'{}')[id]||null;}catch(e){return null;}}
+
+// THEME
+function toggleTheme(){isDark=!isDark;document.documentElement[isDark?'removeAttribute':'setAttribute']('data-light','');document.getElementById('thbtn').textContent=isDark?'☀':'🌙';}
+
+// ── IDIOMA ──
+const LANGS=['es','en','fr'];
+let langIdx=0;
+const UI={
+  es:{lib:'Biblioteca',stats:'Estadísticas',idle:'Pulsa ▶ para comenzar',
+    instr:'<b>Cómo usar Super Lector</b><br><br><b>📖 Modo RSVP</b> — Las palabras aparecen una a una en el centro de la pantalla. Tu ojo no se mueve: la palabra llega a ti. Elimina el movimiento ocular y puede duplicar tu velocidad lectora. Ajusta el bloque (1, 2 o 3 palabras) y la velocidad en PPM.<br><br><b>📄 Modo Página</b> — El texto completo aparece como en un libro, con la palabra actual resaltada. Puedes tocar cualquier palabra para empezar desde ahí. Ideal para textos que requieren más comprensión.<br><br>1. Pulsa 📚, elige un texto y un capítulo.<br>2. Selecciona modo RSVP o Página.<br>3. Pulsa ▶ para comenzar. Usa + y − para la velocidad.<br>4. El progreso se guarda automáticamente.'},
+  en:{lib:'Library',stats:'Statistics',idle:'Press ▶ to start',
+    instr:'<b>How to use Super Reader</b><br><br><b>📖 RSVP Mode</b> — Words appear one by one at the center of the screen. Your eye stays still — the word comes to you. Eliminates eye movement and can double your reading speed. Adjust block size (1, 2 or 3 words) and speed in WPM.<br><br><b>📄 Page Mode</b> — Full text appears like a normal book, with the current word highlighted. Tap any word to jump to it. Ideal for texts requiring deeper comprehension.<br><br>1. Tap 📚, choose a text and a chapter.<br>2. Select RSVP or Page mode.<br>3. Press ▶ to begin. Use + and − to adjust speed.<br>4. Your progress is saved automatically.'},
+  fr:{lib:'Bibliothèque',stats:'Statistiques',idle:'Appuyez sur ▶ pour commencer',
+    instr:'<b>Comment utiliser Super Lecteur</b><br><br><b>📖 Mode RSVP</b> — Les mots apparaissent un par un au centre de l\'écran. Votre œil reste immobile — le mot vient à vous. Élimine le mouvement oculaire et peut doubler votre vitesse de lecture. Ajustez le bloc (1, 2 ou 3 mots) et la vitesse en MPM.<br><br><b>📄 Mode Page</b> — Le texte complet apparaît comme un livre normal, avec le mot actuel surligné. Touchez n\'importe quel mot pour y accéder. Idéal pour les textes nécessitant plus de compréhension.<br><br>1. Appuyez sur 📚, choisissez un texte et un chapitre.<br>2. Sélectionnez le mode RSVP ou Page.<br>3. Appuyez sur ▶ pour commencer. Utilisez + et − pour la vitesse.<br>4. Votre progression est sauvegardée automatiquement.'}
+};
+function cycleLang(){
+  langIdx=(langIdx+1)%LANGS.length;
+  const lang=LANGS[langIdx];
+  document.getElementById('langbtn').textContent=lang.toUpperCase();
+  // Cambiar textos de interfaz
+  const u=UI[lang];
+  // Actualizar libros con el idioma correcto
+  books=PRELOADED.map(b=>{
+    const m=lang==='es'?b.meta:lang==='en'?b.meta_en||b.meta:b.meta_fr||b.meta;
+    const t=lang==='es'?b.texts:lang==='en'?b.texts_en||b.texts:b.texts_fr||b.texts;
+    return Object.assign({},b,{meta:m,texts:t});
+  });
+  buildBkg();buildHgrid();
+  if(!B)setIdle(u.idle);
+}
+
+// DRAWERS
+function openDrw(){if(!B)return;document.getElementById('drw').classList.add('on');document.getElementById('ov').classList.add('on');buildChl();}
+function closeDrw(){document.getElementById('drw').classList.remove('on');document.getElementById('ov').classList.remove('on');}
+function openLib(){closeDrw();document.getElementById('sht').classList.add('on');buildBkg();}
+function closeLib(){document.getElementById('sht').classList.remove('on');}
+function closeStats(){document.getElementById('statsht').classList.remove('on');}
+function closeAll(){closeDrw();closeLib();closeStats();}
+
+// GRIDS
+function bkCard(b,i){
+  const sv=ld(b.id),has=sv&&sv.c>0,m=has?b.meta[sv.c]:null;
+  const isPreloaded=PRELOADED.some(p=>p.id===b.id);
+  const delBtn='<button class="bdel" onclick="delBook(event,'+i+')" title="Eliminar">🗑</button>';
+  return '<div class="bcwrap" style="position:relative;display:inline-block;">'
+    +'<button class="bc'+(B&&B.id===b.id?' on':'')+'" onclick="selBook('+i+')">'
+    +'<span class="be">'+b.e+'</span>'
+    +'<div class="btl">'+b.title+'</div>'
+    +'<div class="bau">'+b.author+'</div>'
+    +'<div class="bme">'+b.meta.length+' cap.</div>'
+    +(has?'<div class="bsv">▶ Cap. '+((m&&m.n)||sv.c+1)+' guardado</div>':'')
+    +'</button>'+delBtn+'</div>';
+}
+function delBook(ev,i){ev.stopPropagation();if(!confirm('¿Eliminar este libro?'))return;books.splice(i,1);if(B&&books.indexOf(B)<0)B=null;buildBkg();buildHgrid();}
+function buildBkg(){document.getElementById('bkg').innerHTML=books.map(bkCard).join('');}
+function buildHgrid(){document.getElementById('hgrid').innerHTML=books.map(bkCard).join('');}
+
+// CHAPTER LIST
+function buildChl(){
+  if(!B)return;
+  const k=B.id,rs=readCh[k]||new Set(),pr=chapProg[k]||{};
+  document.getElementById('ds').textContent=rs.size+' / '+B.meta.length+' leídos';
+  const grps={},ord=[];
+  B.meta.forEach((m,i)=>{const p=m.p||'Capítulos';if(!grps[p]){grps[p]=[];ord.push(p);}grps[p].push(Object.assign({i:i},m));});
+  let h='';
+  ord.forEach(p=>{
+    const chs=grps[p],dc=chs.filter(c=>rs.has(c.i)).length,ic=chs.some(c=>c.i===C);
+    h+='<div><div class="ph" onclick="togP(this)"><span>'+p+'</span><span>'+dc+'/'+chs.length+' '+(ic?'▾':'▸')+'</span></div>'
+      +'<div class="pc'+(ic?'':' col')+'">';
+    chs.forEach(c=>{
+      const d=rs.has(c.i),pc=pr[c.i]||0,ac=c.i===C;
+      h+='<button class="ch'+(ac?' on':'')+'" onclick="goChap('+c.i+')">'
+        +'<span class="cn">'+(c.n||c.i+1)+'</span>'
+        +'<div><div class="cv">'+(c.title||'Cap. '+(c.n||c.i+1))+'</div>'
+        +'<div class="cm">'+((c.w||0).toLocaleString())+' pal.'+(d?' · <span class="cdone">✓</span>':pc>0?' · '+pc+'%':'')+'</div></div></button>';
+    });
+    h+='</div></div>';
+  });
+  document.getElementById('chl').innerHTML=h;
+  setTimeout(()=>{const a=document.querySelector('.ch.on');if(a)a.scrollIntoView({block:'nearest'});},50);
+}
+function togP(h){h.nextElementSibling.classList.toggle('col');}
+
+// SELECT BOOK
+function selBook(i){
+  B=books[i];C=0;
+  if(!readCh[B.id])readCh[B.id]=new Set();
+  if(!chapProg[B.id])chapProg[B.id]={};
+  document.getElementById('ht').textContent=B.title;
+  document.getElementById('hs').textContent=B.author||'';
+  document.getElementById('home').style.display='none';
+  document.getElementById('reader').classList.add('on');
+  document.getElementById('ibtn').style.display='flex';
+  document.getElementById('kbtn').style.display='flex';
+  closeAll();
+  const sv=ld(B.id);
+  if(sv&&sv.c>0){
+    C=sv.c;updateBanner();buildChl();
+    const m=B.meta[C]||{},pct=sv.i&&m.w?Math.round(sv.i/m.w*100):0;
+    setWd('<div class="res"><div class="rl">Última posición</div>'
+      +'<div class="rt">Cap. '+(m.n||C+1)+(m.title?' — '+m.title:'')+'</div>'
+      +'<div class="rp">'+pct+'% leído</div>'
+      +'<div class="rbs"><button class="rbp" onclick="doResume('+sv.c+','+sv.i+')">▶ Continuar</button>'
+      +'<button class="rbs2" onclick="startFresh()">Desde el principio</button></div></div>');
+  }else{
+    loadChap();
+  }
+}
+function setWd(h){const e=document.getElementById('wd');e.className='';e.innerHTML=h;}
+function setIdle(t){const e=document.getElementById('wd');e.className='idle';e.textContent=t;}
+function getTxt(){return B?(B.texts[C]||'').trim():'';}
+
+function loadChap(){
+  clearTimeout(timer);clearInterval(kwTimer);playing=false;
+  document.getElementById('plbtn').textContent='▶';
+  document.getElementById('kwo').classList.remove('on');
+  const txt=getTxt();ws=txt?txt.split(/\s+/).filter(Boolean):[];wi=0;
+  updateProg();updateBanner();buildChl();
+  setIdle('Pulsa ▶ para comenzar');
+}
+function startFresh(){C=0;loadChap();}
+function doResume(c,i){
+  C=c;const txt=getTxt();if(!txt)return;
+  ws=txt.split(/\s+/).filter(Boolean);wi=Math.min(i,ws.length-1);
+  updateProg();updateBanner();buildChl();setIdle('Pulsa ▶ para continuar');
+}
+function goChap(i){
+  if(!B||i<0||i>=B.meta.length)return;
+  save();C=i;closeDrw();loadChap();
+}
+
+// KW OVERLAY
+function showKw(onStart){
+  const cm=B&&B.meta[C]||{},names=cm.names||[],kws=cm.kw||[];
+  if(!names.length&&!kws.length){setIdle('Pulsa ▶ para comenzar');return;}
+  // Update header title
+  const chapTitle='Cap. '+(cm.n||C+1)+(cm.title?' — '+cm.title:'');
+  document.querySelector('.kwot').innerHTML='<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;font-family:var(--fm);margin-bottom:4px">Antes de leer</div><div style="font-size:14px;font-weight:600;color:var(--t);margin-top:2px">'+chapTitle+'</div>';
+  let h='';
+  if(names.length)h+='<div><div class="kwos">👤 Personajes</div><div class="kwotg">'+names.map((n,i)=>'<span class="tag tnm" style="animation-delay:'+i*35+'ms">'+n+'</span>').join('')+'</div></div>';
+  if(names.length&&kws.length)h+='<div class="kwod"></div>';
+  if(kws.length)h+='<div><div class="kwos">🔑 Temas</div><div class="kwotg">'+kws.map((k,i)=>'<span class="tag '+(k.f>0.6?'ts3':k.f>0.3?'ts2':'ts1')+'" style="animation-delay:'+(names.length+i)*35+'ms">'+k.w[0].toUpperCase()+k.w.slice(1)+'</span>').join('')+'</div></div>';
+  document.getElementById('kwob').innerHTML=h;
+  const btn=document.getElementById('kwobtn');
+  btn.textContent='Leer →';btn.onclick=()=>{hideKw();startRead();};
+  const bar=document.getElementById('kwobar'),se=document.getElementById('kwose');
+  bar.style.transition='none';bar.style.width='100%';bar.getBoundingClientRect();
+  bar.style.transition='width 8000ms linear';bar.style.width='0%';
+  se.textContent='8s';let el=0;
+  kwTimer=setInterval(()=>{el+=500;se.textContent=Math.max(0,Math.ceil((8000-el)/1000))+'s';
+    if(el>=8000){clearInterval(kwTimer);hideKw();startRead();}},500);
+  document.getElementById('kwo').classList.add('on');
+}
+function hideKw(){clearInterval(kwTimer);document.getElementById('kwo').classList.remove('on');}
+function peekKw(){
+  if(!B)return;
+  const wasP=playing;if(playing){clearTimeout(timer);playing=false;document.getElementById('plbtn').textContent='▶';}
+  const cm=B&&B.meta[C]||{},names=cm.names||[],kws=cm.kw||[];
+  hideKw();
+  let h='';
+  if(names.length)h+='<div><div class="kwos">👤 Personajes</div><div class="kwotg">'+names.map((n,i)=>'<span class="tag tnm" style="animation-delay:'+i*35+'ms">'+n+'</span>').join('')+'</div></div>';
+  if(names.length&&kws.length)h+='<div class="kwod"></div>';
+  if(kws.length)h+='<div><div class="kwos">🔑 Temas</div><div class="kwotg">'+kws.map((k,i)=>'<span class="tag '+(k.f>0.6?'ts3':k.f>0.3?'ts2':'ts1')+'" style="animation-delay:'+(names.length+i)*35+'ms">'+k.w[0].toUpperCase()+k.w.slice(1)+'</span>').join('')+'</div></div>';
+  document.getElementById('kwob').innerHTML=h;
+  document.getElementById('kwobar').style.cssText='transition:none;width:100%';
+  document.getElementById('kwose').textContent='';
+  const btn=document.getElementById('kwobtn');
+  btn.textContent='Continuar →';
+  btn.onclick=()=>{hideKw();if(wasP&&ws.length&&wi<ws.length){playing=true;document.getElementById('plbtn').textContent='⏸';tick();}};
+  document.getElementById('kwo').classList.add('on');
+}
+
+// RSVP
+const STOP=new Set('el,la,los,las,un,una,y,o,de,del,en,a,al,que,se,no,por,su,con,es,son,fue,era,han,para,le,lo,me,te,mi,tu,si,mas,pero,como,ya,sus,este,esta,ese,esa,muy,cuando,entre,sobre,todo,cada,vez,hay,tanto,sin,hasta,desde,antes,aunque,porque,sino,ni,mientras,mismo,otro,algo,nada,aqui,ahora,hacia,pues,les,nos,haber,sido,habia,dijo,entonces,veces,menos,nunca,siempre'.split(','));
+function orp(w){
+  if(!w)return'';const l=w.length;
+  let p=l<=1?0:l<=4?1:l<=9?Math.floor(l/2)-1:Math.floor(l*.4);
+  const ao=document.getElementById('torp').classList.contains('on');
+  const ak=document.getElementById('tkw').classList.contains('on');
+  const cl=w.toLowerCase().replace(/[^a-záéíóúñü]/g,'');
+  const isk=!STOP.has(cl)&&cl.length>3;
+  let b=w.slice(0,p),pv=w[p]||'',a=w.slice(p+1);
+  if(ao)pv='<span class="orp">'+pv+'</span>';
+  let f=b+pv+a;
+  if(ak&&isk)f='<span class="kw">'+f+'</span>';else if(ak)f='<span class="dim">'+f+'</span>';
+  return f;
+}
+function showBlock(){const bl=ws.slice(wi,wi+bs);if(!bl.length)return;const e=document.getElementById('wd');e.className='';e.innerHTML=bl.map(orp).join(' ');}
+
+function startRead(){
+  if(!ws.length){const t=getTxt();if(!t)return;ws=t.split(/\s+/).filter(Boolean);}
+  if(!ws.length)return;
+  wi=0;document.getElementById('wd').className='';document.getElementById('wd').innerHTML='';
+  sess={start:Date.now(),pauses:0,ptot:0,plast:0,ppms:[ppm],discon:0};
+  playing=true;document.getElementById('plbtn').textContent='⏸';tick();
+}
+let sc=0;
+function tick(){
+  if(!playing||wi>=ws.length){if(wi>=ws.length)finishChap();return;}
+  showBlock();wi+=bs;updateProg();
+  if(++sc>=15){sc=0;save();}
+  timer=setTimeout(tick,Math.round(60000/ppm*bs));
+}
+function togglePlay(){
+  if(!B)return;
+  if(!ws.length){const t=getTxt();if(!t)return;ws=t.split(/\s+/).filter(Boolean);}
+  if(!ws.length)return;
+  if(wi>=ws.length){startFresh();return;}
+  playing=!playing;
+  document.getElementById('plbtn').textContent=playing?'⏸':'▶';
+  if(playing){
+    if(!sess.start){
+      // First play — show keywords first, then start
+      sess={start:Date.now(),pauses:0,ptot:0,plast:0,ppms:[ppm],discon:0};
+      playing=false;
+      document.getElementById('plbtn').textContent='▶';
+      showKw(()=>{playing=true;document.getElementById('plbtn').textContent='⏸';tick();});
+    } else {
+      if(sess.plast){const g=Date.now()-sess.plast;sess.ptot+=g;if(g>8000)sess.discon++;sess.plast=0;}
+      tick();
+    }
+  }else{clearTimeout(timer);sess.plast=Date.now();sess.pauses++;save();}
+}
+function doRestart(){
+  clearTimeout(timer);clearInterval(kwTimer);playing=false;
+  document.getElementById('plbtn').textContent='▶';
+  document.getElementById('kwo').classList.remove('on');
+  sess={start:0,pauses:0,ptot:0,plast:0,ppms:[ppm],discon:0};
+  wi=0;updateProg();setIdle('Pulsa ▶ para comenzar');
+}
+function setPPM(v){ppm=Math.min(800,Math.max(150,v));document.getElementById('spv').textContent=ppm+' PPM';document.getElementById('spsl').value=ppm;updateBanner();updateProg();}
+function adjPPM(d){setPPM(ppm+d);}
+function setBlock(n,btn){bs=n;document.querySelectorAll('.bb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+
+// FINISH
+function fmt(s){if(s<60)return s+'s';const h=Math.floor(s/3600),m=Math.floor(s%3600/60),sc=s%60;return h?h+'h '+m+'m':m+'m'+(sc?' '+sc+'s':'');}
+let lastReport=null;
+
+function finishChap(){
+  playing=false;clearTimeout(timer);
+  if(B){const k=B.id;if(!readCh[k])readCh[k]=new Set();readCh[k].add(C);if(!chapProg[k])chapProg[k]={};chapProg[k][C]=100;}
+  save();
+  lastReport=sessEnd();
+  window._lastQuizPct=undefined;
+  updateProg();
+  // Pre-save session (quiz score added later if taken)
+  if(lastReport){
+    const m=B&&B.meta[C]||{};
+    saveSession(lastReport,B.id,B.title,m.n||C+1,m.title||('Cap. '+(m.n||C+1)),null);
+    saveBook(B.id,B.title,C,ws.length);
+  }
+  showFinishScreen();
+}
+
+function showFinishScreen(){
+  const hasN=B&&C<B.meta.length-1;
+  const m=B&&B.meta[C]||{};
+  const nextM=hasN&&B.meta[C+1]||{};
+  setWd('<div class="res">'
+    +'<div style="font-size:22px;margin-bottom:6px">✓</div>'
+    +'<div class="rl">Capítulo completado</div>'
+    +'<div class="rt" style="margin-bottom:16px">'+(m.title||('Cap. '+(m.n||C+1)))+'</div>'
+    +'<div class="rbs" style="flex-direction:column;gap:9px;align-items:stretch">'
+    +(hasN
+      ?'<button class="rbp" onclick="goChap('+(C+1)+')" style="font-size:15px;padding:13px 20px">▶ Siguiente: '+(nextM.title||('Cap. '+(nextM.n||C+2)))+'</button>'
+      :'<div style="color:var(--ok);font-size:15px;font-weight:600;padding:8px 0">🎉 Libro completado</div>')
+    +'<button onclick="startQuiz()" style="padding:11px 20px;background:var(--s2);border:1.5px solid var(--b2);color:var(--t);border-radius:10px;font-size:14px;font-weight:500;cursor:pointer">📝 Hacer quiz del capítulo</button>'
+    +'<button onclick="showReportAndNext()" style="padding:9px 20px;background:none;border:none;color:var(--t3);font-size:13px;cursor:pointer;text-decoration:underline">Ver asesoramiento →</button>'
+    +'</div>'
+    +'</div>');
+}
+
+function showReportAndNext(){
+  if(lastReport)showReport(lastReport);
+  else{
+    const hasN=B&&C<B.meta.length-1;
+    const nextM=hasN&&B.meta[C+1]||{};
+    setWd('<div class="res"><div class="rbs">'
+      +(hasN?'<button class="rbp" onclick="goChap('+(C+1)+')">▶ Siguiente: '+(nextM.title||('Cap. '+(nextM.n||C+2)))+'</button>':'<div style="color:var(--ok)">🎉 Libro completado</div>')
+      +'</div></div>');
+  }
+}
+
+// QUIZ
+let quizSample=null;
+let quizState={questions:[],answers:[],current:0,done:false};
+
+async function startQuiz(){
+  // Show loading
+  setWd('<div class="res"><div class="rl">Generando quiz...</div>'
+    +'<div style="margin:16px 0;display:flex;justify-content:center">'
+    +'<div style="width:36px;height:36px;border:3px solid var(--b2);border-top-color:var(--ac);border-radius:50%;animation:spin 1s linear infinite"></div>'
+    +'</div>'
+    +'<div style="font-size:13px;color:var(--t3)">Analizando el capítulo...</div></div>');
+
+  if(!document.getElementById('spinStyle')){
+    const st=document.createElement('style');
+    st.id='spinStyle';
+    st.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+
+  try{
+    if(!quizSample){
+      const s=null;
+      if(!s){setWd('<div class="res"><div class="rl">Quiz no disponible</div><div class="rbs" style="margin-top:12px"><button class="rbp" onclick="showReportAndNext()">Continuar →</button></div></div>');return;}
+      quizSample=s;
+    }
+
+    const txt=getTxt().slice(0,4000); // first 4000 chars for context
+    const m=B&&B.meta[C]||{};
+    const chapTitle=(m.title||('Capítulo '+(m.n||C+1)));
+
+    const result=await quizSample.json(
+      'Eres un profesor de lectura. El usuario acaba de leer "'+chapTitle+'" del libro "'+B.title+'".\n\n'
+      +'Fragmento del capítulo:\n"""\n'+txt+'\n"""\n\n'
+      +'Genera exactamente 3 preguntas de comprensión lectora sobre este capítulo. '
+      +'Las preguntas deben ser concretas y responderlas requiere haber leído el capítulo. '
+      +'Cada pregunta tiene 4 opciones (A, B, C, D) y solo una es correcta.\n\n'
+      +'Responde SOLO con JSON válido, sin texto adicional, con este formato exacto:\n'
+      +'{"questions":[{"q":"¿Pregunta?","opts":["A) opción","B) opción","C) opción","D) opción"],"correct":0,"explanation":"Explicación breve de por qué es correcta"}]}',
+      {modelTier:'default'}
+    );
+
+    quizState={questions:result.questions||[],answers:[],current:0,done:false};
+    renderQuiz();
+
+  }catch(e){
+    console.error(e);
+    setWd('<div class="res"><div class="rl">No se pudo generar el quiz</div>'
+      +'<div style="font-size:12px;color:var(--t3);margin:8px 0">'+e.message+'</div>'
+      +'<div class="rbs" style="margin-top:12px"><button class="rbp" onclick="showReportAndNext()">Continuar →</button></div></div>');
+  }
+}
+
+function renderQuiz(){
+  const qs=quizState.questions;
+  if(!qs.length){setWd('<div class="res"><div class="rl">Sin preguntas</div><div class="rbs" style="margin-top:12px"><button class="rbp" onclick="showReportAndNext()">Continuar →</button></div></div>');return;}
+
+  if(quizState.done){
+    // Results screen
+    const correct=quizState.answers.filter((a,i)=>a===qs[i].correct).length;
+    const pct=Math.round(correct/qs.length*100);
+    const col=pct===100?'var(--ok)':pct>=66?'var(--nm)':'#ff7070';
+    let h='<div style="width:100%">'
+      +'<div style="text-align:center;padding:8px 0 16px">'
+      +'<div style="font-size:11px;color:var(--t3);font-family:var(--fm);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Resultado del quiz</div>'
+      +'<div style="font-size:44px;font-weight:700;color:'+col+'">'+correct+'/'+qs.length+'</div>'
+      +'<div style="font-size:13px;color:var(--t3);margin-top:4px">'+pct+'% correcto</div></div>'
+      +'<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">';
+    qs.forEach((q,i)=>{
+      const ua=quizState.answers[i],ok=ua===q.correct;
+      h+='<div style="background:var(--s2);border:1px solid '+(ok?'rgba(62,207,122,.3)':'rgba(255,100,100,.3)')+';border-radius:12px;padding:11px 13px">'
+        +'<div style="font-size:12px;font-weight:500;margin-bottom:6px">'+q.q+'</div>'
+        +'<div style="font-size:12px;color:'+(ok?'var(--ok)':'#ff7070')+';margin-bottom:4px">'+(ok?'✓':'✗')+' '+q.opts[ua]+'</div>'
+        +(ok?'':'<div style="font-size:11px;color:var(--ok)">✓ '+q.opts[q.correct]+'</div>')
+        +'<div style="font-size:11px;color:var(--t3);margin-top:5px;line-height:1.4">'+q.explanation+'</div>'
+        +'</div>';
+    });
+    const hasN2=B&&C<B.meta.length-1;
+    const nextM2=hasN2&&B.meta[C+1]||{};
+    h+='</div><div class="rbs" style="flex-direction:column;gap:9px;align-items:stretch">'
+      +(hasN2?'<button class="rbp" onclick="goChap('+(C+1)+')" style="font-size:15px;padding:13px 20px">▶ Siguiente: '+(nextM2.title||('Cap. '+(nextM2.n||C+2)))+'</button>':'<div style="color:var(--ok);font-size:15px;font-weight:600;padding:8px 0;text-align:center">🎉 Libro completado</div>')
+      +'<button onclick="showReportAndNext()" style="padding:9px;background:none;border:none;color:var(--t3);font-size:13px;cursor:pointer;text-decoration:underline">Ver asesoramiento →</button>'
+      +'</div></div>';
+    setWd(h);
+    return;
+  }
+
+  // Question screen
+  const i=quizState.current,q=qs[i];
+  let h='<div style="width:100%">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
+    +'<div style="font-size:11px;color:var(--t3);font-family:var(--fm);letter-spacing:.05em;text-transform:uppercase">Pregunta '+(i+1)+' de '+qs.length+'</div>'
+    +'<div style="display:flex;gap:4px">'+qs.map((_,j)=>'<div style="width:20px;height:4px;border-radius:2px;background:'+(j<i?'var(--ac)':j===i?'var(--ac)':'var(--s3)')+'"></div>').join('')+'</div>'
+    +'</div>'
+    +'<div style="font-size:15px;font-weight:500;line-height:1.5;margin-bottom:16px">'+q.q+'</div>'
+    +'<div style="display:flex;flex-direction:column;gap:8px">';
+  q.opts.forEach((opt,j)=>{
+    h+='<button onclick="answerQuiz('+j+')" style="text-align:left;padding:12px 14px;border:1.5px solid var(--b2);border-radius:11px;font-size:13px;font-weight:500;color:var(--t);background:var(--s2);cursor:pointer;line-height:1.4;transition:all .15s" '
+      +'onmouseover="this.style.borderColor=\'var(--ac)\';this.style.background=\'var(--acb)\'" '
+      +'onmouseout="this.style.borderColor=\'var(--b2)\';this.style.background=\'var(--s2)\'">'
+      +opt+'</button>';
+  });
+  h+='</div>'
+    +'<div style="margin-top:14px;text-align:center"><button onclick="showReportAndNext()" style="font-size:12px;color:var(--t3);background:none;border:none;cursor:pointer;text-decoration:underline">Saltar quiz</button></div>'
+    +'</div>';
+  setWd(h);
+}
+
+function answerQuiz(optIdx){
+  quizState.answers.push(optIdx);
+  quizState.current++;
+  if(quizState.current>=quizState.questions.length){
+    quizState.done=true;
+  }
+  renderQuiz();
+}
+function sessEnd(){
+  if(!sess.start)return null;
+  const dur=Math.round((Date.now()-sess.start)/1000);
+  const avgPPM=Math.round(sess.ppms.reduce((a,b)=>a+b,0)/Math.max(1,sess.ppms.length));
+  const flu=Math.max(20,Math.min(100,100-sess.pauses*8-sess.discon*12));
+  sess.start=0;return{dur,avgPPM,pauses:sess.pauses,discon:sess.discon,flu};
+}
+function showReport(r){
+  const hasN=B&&C<B.meta.length-1,fc=r.flu>=75?'var(--ok)':r.flu>=50?'#ffaa55':'#ff6060';
+  const tips=genTips(r);
+  setWd('<div style="width:100%"><div style="text-align:center;padding:6px 0 14px">'
+    +'<div style="font-size:10px;color:var(--t3);font-family:var(--fm);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Capítulo completado</div>'
+    +'<div style="display:flex;justify-content:center;gap:16px;font-family:var(--fm)">'
+    +'<div style="text-align:center"><div style="font-size:20px;font-weight:600;color:var(--ac)">'+r.avgPPM+'</div><div style="font-size:10px;color:var(--t3)">PPM</div></div>'
+    +'<div style="text-align:center"><div style="font-size:20px;font-weight:600;color:'+fc+'">'+r.flu+'%</div><div style="font-size:10px;color:var(--t3)">Fluidez</div></div>'
+    +'<div style="text-align:center"><div style="font-size:20px;font-weight:600;color:var(--t2)">'+fmt(r.dur)+'</div><div style="font-size:10px;color:var(--t3)">Tiempo</div></div>'
+    +'<div style="text-align:center"><div style="font-size:20px;font-weight:600;color:'+(r.pauses>3?'#ffaa55':'var(--t2)')+'">'+r.pauses+'</div><div style="font-size:10px;color:var(--t3)">Pausas</div></div>'
+    +'</div></div>'
+    +'<div style="border-top:1px solid var(--b);padding-top:10px;margin-bottom:12px">'
+    +'<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">💡 Consejos</div>'+tips+'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">'
+    +(hasN?'<button class="rbp" onclick="goChap('+(C+1)+')">Siguiente →</button>':'<div style="font-size:14px;color:var(--ok)">🎉 Libro completado</div>')
+    +'<button class="rbs2" onclick="doRestart()">↺ Releer</button></div></div>');
+}
+function genTips(r){
+  const tips=[];
+  if(r.discon>=2)tips.push(['🧠','Técnica','var(--acb)','var(--ac)','Reduce el bloque','Te desconectaste '+r.discon+' veces. Lee en bloques de 1 palabra hasta que el ritmo sea automático.']);
+  else if(r.pauses>=4)tips.push(['👁','Técnica','var(--acb)','var(--ac)','Activa ORP',r.pauses+' pausas. El punto naranja ancla el ojo y reduce el esfuerzo visual.']);
+  else tips.push(['✅','Técnica','var(--acb)','var(--ac)','Lectura fluida','Pocas interrupciones. Prueba el bloque de 2 palabras para avanzar más rápido.']);
+  const min=Math.round(r.dur/60);
+  if(min<4)tips.push(['⏱','Hábito','rgba(62,207,122,.12)','var(--ok)','Sesiones más largas','Solo '+min+' min. La fluidez mejora tras el minuto 4. Intenta llegar a 10 min seguidos.']);
+  else tips.push(['🔥','Hábito','rgba(62,207,122,.12)','var(--ok)','Buen hábito',min+' min de lectura activa. Añade 5 min cada semana hasta tu objetivo.']);
+  if(r.flu<60)tips.push(['⬇','Velocidad','rgba(255,170,85,.12)','var(--nm)','Baja la velocidad','Fluidez del '+r.flu+'%. Baja 50 PPM durante 3 días para consolidar.']);
+  else if(r.flu>=85&&r.avgPPM<500)tips.push(['⬆','Velocidad','rgba(255,170,85,.12)','var(--nm)','Puedes subir','Fluidez '+r.flu+'%. Prueba '+(Math.min(800,r.avgPPM+30))+' PPM en el siguiente capítulo.']);
+  else tips.push(['🎯','Velocidad','rgba(255,170,85,.12)','var(--nm)','Velocidad óptima',r.avgPPM+' PPM con '+r.flu+'% de fluidez. Mantén 5 capítulos más.']);
+  return tips.map(([ico,tp,bg,col,tit,body])=>
+    '<div style="background:var(--s2);border:1px solid var(--b);border-radius:12px;padding:11px 13px;margin-bottom:8px">'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span>'+ico+'</span>'
+    +'<span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:'+bg+';color:'+col+'">'+tp+'</span>'
+    +'<span style="font-size:13px;font-weight:500">'+tit+'</span></div>'
+    +'<div style="font-size:12px;color:var(--t2);line-height:1.5">'+body+'</div></div>'
+  ).join('');
+}
+
+// PROGRESS
+function wrem(){if(!B)return 0;return B.meta.reduce((s,m,i)=>{if(i<C)return s;const w=m.w||0;return s+(i===C?Math.max(0,(ws.length||w)-wi):w);},0);}
+function updateBanner(){
+  if(!B)return;const m=B.meta[C]||{};
+  document.getElementById('bnp').textContent=m.p||'';
+  document.getElementById('bnt').textContent='Cap. '+(m.n||C+1)+(m.title?' — '+m.title:'');
+  document.getElementById('bnm').textContent=(m.w||0).toLocaleString()+' pal. · ~'+Math.max(1,Math.round((m.w||0)/ppm))+'min';
+  document.getElementById('pb').disabled=C===0;
+  document.getElementById('nb').disabled=!B||C>=B.meta.length-1;
+  document.getElementById('tc1').textContent=fmt(Math.round((m.w||0)/ppm*60));
+  document.getElementById('tc2').textContent=fmt(Math.round(wrem()/ppm*60));
+  document.getElementById('tc3').textContent=ppm;
+}
+function updateProg(){
+  const tot=ws.length,d=Math.min(wi,tot),pct=tot>0?Math.round(d/tot*100):0;
+  document.getElementById('pf').style.width=pct+'%';
+  document.getElementById('pct').textContent=pct+'%';
+  document.getElementById('pwd').textContent=d.toLocaleString()+' / '+tot.toLocaleString();
+  const rs=tot>0?Math.round((tot-d)/ppm*60):0;
+  document.getElementById('ptm').textContent=fmt(rs);
+  document.getElementById('tc1').textContent=rs>0?fmt(rs):'✓';
+  document.getElementById('tc2').textContent=fmt(Math.round(wrem()/ppm*60));
+  document.getElementById('tc3').textContent=ppm;
+  if(B){const k=B.id;if(!chapProg[k])chapProg[k]={};chapProg[k][C]=pct;}
+}
+
+// SEEK
+function seekTo(pct){
+  if(!ws.length)return;
+  const wasP=playing;if(playing){clearTimeout(timer);playing=false;}
+  wi=Math.max(0,Math.min(Math.round(pct/100*ws.length),ws.length-1));
+  if(wi>0)showBlock();updateProg();
+  if(wasP){playing=true;tick();}
+  document.getElementById('plbtn').textContent=playing?'⏸':'▶';
+}
+function pev(e,t){const r=t.getBoundingClientRect(),x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;return Math.max(0,Math.min(100,x/r.width*100));}
+(function(){
+  const t=document.getElementById('pt');let drag=false;
+  t.addEventListener('mousedown',e=>{drag=true;t.classList.add('drag');seekTo(pev(e,t));e.preventDefault();});
+  document.addEventListener('mousemove',e=>{if(drag)seekTo(pev(e,t));});
+  document.addEventListener('mouseup',()=>{if(drag){drag=false;t.classList.remove('drag');}});
+  t.addEventListener('touchstart',e=>{drag=true;t.classList.add('drag');seekTo(pev(e,t));e.preventDefault();},{passive:false});
+  document.addEventListener('touchmove',e=>{if(drag){seekTo(pev(e,t));e.preventDefault();}},{passive:false});
+  document.addEventListener('touchend',()=>{if(drag){drag=false;t.classList.remove('drag');}});
+})();
+
+// EPUB LOADER
+async function handleFile(inp){
+  const file=inp.files[0];if(!file)return;
+  const msg=t=>{document.getElementById('upp').textContent=t;document.getElementById('upp2').textContent=t;};
+  msg('Procesando...');
+  try{
+    let bk;
+    if(file.name.endsWith('.txt')){const t=await file.text();bk=mkBook(file.name.replace(/\.txt$/,''),'',splitTxt(t));}
+    else bk=await loadEpub(file);
+    books.push(bk);msg('✓ '+bk.title);setTimeout(()=>msg(''),2500);selBook(books.length-1);
+  }catch(e){msg('Error: '+e.message);}
+  inp.value='';
+}
+async function loadEpub(file){
+  const zip=await JSZip.loadAsync(file);let op='';
+  const cnt=zip.file('META-INF/container.xml');
+  if(cnt){const x=await cnt.async('text');const m=x.match(/full-path="([^"]+\.opf)"/);if(m)op=m[1];}
+  if(!op){zip.forEach(p=>{if(p.endsWith('.opf'))op=p;});}
+  if(!op)throw new Error('EPUB sin OPF');
+  const ot=await zip.file(op).async('text');
+  const pr=new DOMParser(),opf=pr.parseFromString(ot,'application/xml');
+  const ti=opf.querySelector('title')?.textContent||file.name.replace(/\.epub$/,'');
+  const au=opf.querySelector('creator')?.textContent||'';
+  const base=op.includes('/')?op.split('/').slice(0,-1).join('/'):'';
+  const res=h=>base?base+'/'+h:h;
+  const mf={};[...opf.querySelectorAll('item')].forEach(it=>{mf[it.getAttribute('id')]={href:it.getAttribute('href'),media:it.getAttribute('media-type')};});
+  const ids=[...opf.querySelectorAll('itemref')].map(r=>r.getAttribute('idref'));
+  let all='';
+  for(const id of ids){const it=mf[id];if(!it||!it.media.includes('html'))continue;const f=zip.file(res(it.href))||zip.file(it.href);if(!f)continue;const h=await f.async('text');const d=pr.parseFromString(h,'text/html');d.querySelectorAll('script,style,nav').forEach(e=>e.remove());all+=(d.body?.textContent||'')+'\n\n';}
+  return mkBook(ti,au,splitTxt(all));
+}
+function splitTxt(text){
+  const parts=text.split(/\n\s*(?:cap[íi]tulo\s+[\divxlcIVXLC]+|chapter\s+\d+)/gi);
+  let chs=[];
+  parts.forEach((p,i)=>{const c=p.replace(/\s+/g,' ').trim();if(c.split(' ').length>=40)chs.push({label:String(i),text:c});});
+  if(chs.length<2){const ww=text.replace(/\s+/g,' ').trim().split(' ');const sz=1800;for(let i=0;i<ww.length;i+=sz)chs.push({label:String(Math.floor(i/sz)+1),text:ww.slice(i,i+sz).join(' ')});}
+  return chs;
+}
+function mkBook(title,author,raw){
+  return{id:'u'+Date.now(),title,author,e:'📖',
+    meta:raw.map((c,i)=>({p:'Capítulos',n:c.label||String(i+1),title:c.label||'',w:c.text.split(' ').length})),
+    texts:raw.map(c=>c.text)};
+}
+
+// ── DB STATS (localStorage) ──
+let dbHandle=null, userHandle=null, userId='local';
+
+function initDB(){ dbHandle=true; }
+
+function lsGet(key){ try{ return JSON.parse(localStorage.getItem(key)); }catch(e){ return null; } }
+function lsSet(key,val){ try{ localStorage.setItem(key,JSON.stringify(val)); }catch(e){} }
+
+async function saveSession(report, bookId, bookTitle, chapNum, chapTitle){
+  try{
+    const sessions = lsGet('sl_sessions')||[];
+    sessions.push({
+      ts: Date.now(),
+      date: new Date().toLocaleDateString('es'),
+      bookId, bookTitle, chapNum, chapTitle,
+      ppm: report.avgPPM||0,
+      flu: report.flu||0,
+      dur: report.dur||0,
+      pauses: report.pauses||0
+    });
+    if(sessions.length>200) sessions.splice(0, sessions.length-200);
+    lsSet('sl_sessions', sessions);
+  }catch(e){ console.warn('saveSession error',e); }
+}
+
+async function saveBook(bookId, bookTitle, chapIdx, wordCount){
+  try{
+    const books_data = lsGet('sl_books')||{};
+    const b = books_data[bookId]||{bookId,bookTitle,chaps:[],totalWords:0,firstRead:Date.now()};
+    if(!b.chaps.includes(chapIdx)) b.chaps.push(chapIdx);
+    b.totalWords=(b.totalWords||0)+(wordCount||0);
+    b.lastRead=Date.now();
+    books_data[bookId]=b;
+    lsSet('sl_books', books_data);
+  }catch(e){ console.warn('saveBook error',e); }
+}
+
+function openStats(){ closeAll(); document.getElementById('statsht').classList.add('on'); loadStats(); }
+function closeStats(){ document.getElementById('statsht').classList.remove('on'); }
+
+async function loadStats(){
+  const body = document.getElementById('statsBody');
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:13px">Cargando estadísticas...</div>';
+
+  if(!dbHandle){
+    // localStorage siempre disponible
+    dbHandle = true;
+  }
+
+  if(!dbHandle){
+    body.innerHTML = '<div style="padding:20px;font-size:13px;color:var(--t3);text-align:center">Base de datos no disponible en este entorno.</div>';
+    return;
+  }
+
+  if(!userId){
+    body.innerHTML = '<div style="padding:20px;font-size:13px;color:var(--t3);text-align:center">Inicia sesión en Claude para ver estadísticas.</div>';
+    return;
+  }
+
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3)">Cargando sesiones...</div>';
+
+  try{
+    const sessCol = dbHandle.collection('users/'+userId+'/sessions');
+    const sessSnap = await sessCol.orderBy('ts','desc').limit(50).get();
+    const sessions = (sessSnap.docs||[]).map(d=>d.data());
+
+    const booksCol = dbHandle.collection('users/'+userId+'/books');
+    const booksSnap = await booksCol.get();
+    const books = (booksSnap.docs||[]).map(d=>d.data());
+
+    renderStats(body, sessions, books);
+  }catch(e){
+    body.innerHTML = '<div style="padding:16px;font-size:12px;color:#ff7070;font-family:monospace;word-break:break-all">'
+      +'Error: '+e.message+'<br><br>'
+      +'Stack: '+(e.stack||'').slice(0,200)+'</div>';
+  }
+}
+
+function renderStats(body, sessions, books){
+  if(!sessions.length){
+    body.innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:32px;margin-bottom:12px">📚</div><div style="color:var(--t3);font-size:14px">Completa tu primer capítulo<br>para ver estadísticas.</div></div>';
+    return;
+  }
+
+  const totalChaps = sessions.length;
+  const totalMins = Math.round(sessions.reduce((s,r)=>s+(r.dur||0),0)/60);
+  const avgPPM = Math.round(sessions.reduce((s,r)=>s+(r.ppm||0),0)/sessions.length);
+
+  // PPM chart (last 10)
+  const last10 = sessions.slice(0,10).reverse();
+  const maxPPM = Math.max(...last10.map(s=>s.ppm||0), 1);
+  const bars = last10.map(s=>{
+    const h = Math.max(4, Math.round(((s.ppm||0)/maxPPM)*52));
+    const col = (s.ppm||0)>=300?'var(--ok)':(s.ppm||0)>=200?'var(--ac)':'var(--nm)';
+    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">'
+      +'<div style="font-size:9px;color:var(--t3);font-family:var(--fm)">'+(s.ppm||0)+'</div>'
+      +'<div style="width:100%;height:'+h+'px;background:'+col+';border-radius:3px 3px 0 0"></div>'
+      +'<div style="font-size:9px;color:var(--t3);writing-mode:vertical-rl;transform:rotate(180deg);height:30px;overflow:hidden">'+(s.date||'').slice(0,5)+'</div>'
+      +'</div>';
+  }).join('');
+
+  // Books ranking
+  const booksRanked = [...books].sort((a,b)=>(b.chaps||[]).length-(a.chaps||[]).length);
+  const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+  const booksHTML = booksRanked.slice(0,5).map((b,i)=>
+    '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--b)">'
+    +'<span style="font-size:18px">'+medals[i]+'</span>'
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(b.bookTitle||b.bookId)+'</div>'
+    +'<div style="font-size:11px;color:var(--t3);font-family:var(--fm);margin-top:2px">'+(b.chaps||[]).length+' cap. · '+new Date(b.lastRead||0).toLocaleDateString('es')+'</div>'
+    +'</div>'
+    +'<div style="font-size:18px;font-weight:700;color:var(--ac);font-family:var(--fm)">'+(b.chaps||[]).length+'</div>'
+    +'</div>'
+  ).join('');
+
+  // Last sessions
+  const lastHTML = sessions.slice(0,6).map(s=>
+    '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--b)">'
+    +'<div style="flex:1;min-width:0">'
+    +'<div style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(s.chapTitle||('Cap. '+(s.chapNum||'')))+' · '+(s.bookTitle||'')+'</div>'
+    +'<div style="font-size:11px;color:var(--t3);margin-top:1px">'+(s.date||'')+' · '+(s.dur?Math.round(s.dur/60)+'min':'—')+'</div>'
+    +'</div>'
+    +'<div style="text-align:right;flex-shrink:0">'
+    +'<div style="font-size:14px;font-weight:600;color:var(--ac);font-family:var(--fm)">'+(s.ppm||0)+' PPM</div>'
+    +'<div style="font-size:10px;color:var(--t3)">'+(s.flu||0)+'% fluidez</div>'
+    +'</div></div>'
+  ).join('');
+
+  body.innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">'
+    +'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:13px;text-align:center"><div style="font-size:26px;font-weight:700;color:var(--ac);font-family:var(--fm)">'+totalChaps+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">Capítulos leídos</div></div>'
+    +'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:13px;text-align:center"><div style="font-size:26px;font-weight:700;color:var(--ok);font-family:var(--fm)">'+totalMins+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">Minutos leídos</div></div>'
+    +'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:13px;text-align:center"><div style="font-size:26px;font-weight:700;color:var(--nm);font-family:var(--fm)">'+avgPPM+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">PPM promedio</div></div>'
+    +'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:13px;text-align:center"><div style="font-size:26px;font-weight:700;color:var(--pl);font-family:var(--fm)">'+books.length+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">Libros activos</div></div>'
+    +'</div>'
+    +(last10.length>1?'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:14px;margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px">📈 Evolución PPM</div><div style="display:flex;align-items:flex-end;gap:3px;height:90px">'+bars+'</div></div>':'')
+    +(booksHTML?'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:14px;margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">🏆 Ranking de libros</div>'+booksHTML+'</div>':'')
+    +'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:14px"><div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">📖 Últimas sesiones</div>'+lastHTML+'</div>';
+}
+
+initDB();
+
+// ── PAGE MODE ──
+let pgMode='rsvp',pgToks=[],pgWi=0,pgPPM=200,pgPlay_=false,pgTimer=null;
+let pgKws=new Set(),pgNms=new Set(),pgPls=new Set(),pgHlKw=true,pgHlNm=true;
+
+function pgSwitch(m){
+  if(pgMode===m)return;
+  pgMode=m;
+  document.getElementById('mtab-r').classList.toggle('on',m==='rsvp');
+  document.getElementById('mtab-p').classList.toggle('on',m==='page');
+  // show/hide RSVP controls (all siblings of mode-tabs inside reader except pg-view)
+  document.getElementById('rsvp-content').style.display=m==='rsvp'?'flex':'none';
+  document.getElementById('rsvp-content').style.flexDirection='column';
+  document.getElementById('rsvp-content').style.gap='12px';
+  document.getElementById('pg-view').style.display=m==='page'?'block':'none';
+  document.getElementById('pg-bar').style.display=m==='page'?'block':'none';
+  document.getElementById('kbtn').style.display=m==='rsvp'&&B?'flex':'none';
+  if(m==='rsvp'){clearTimeout(pgTimer);pgPlay_=false;const p=document.getElementById('pg-play');if(p)p.textContent='▶';}
+  else{clearTimeout(timer);playing=false;document.getElementById('plbtn').textContent='▶';if(B)pgLoad();}
+}
+
+function pgLoad(){
+  clearTimeout(pgTimer);pgPlay_=false;
+  const p=document.getElementById('pg-play');if(p)p.textContent='▶';
+  const txt=getTxt(),paras=(txt||'').split(/\n+/);
+  pgToks=[];
+  paras.forEach((para,pi)=>{if(!para.trim())return;(para.match(/\S+/g)||[]).forEach(w=>pgToks.push({w,p:pi}));pgToks.push({br:1});});
+  pgWi=0;pgKws=pgCalcKw();pgNms=pgCalcNm();pgPls=pgCalcPlaces();
+  pgRender(0);pgProg();
+  const prev=document.getElementById('pg-prev'),nxt=document.getElementById('pg-next');
+  if(prev)prev.disabled=C===0;if(nxt)nxt.disabled=!B||C>=B.meta.length-1;
+}
+
+function pgCalcKw(){
+  if(!B)return new Set();
+  const STOP=new Set('el,la,los,las,un,una,y,o,de,del,en,a,al,que,se,no,por,su,con,es,son,fue,era,han,para,le,lo,me,te,mi,tu,si,mas,pero,como,ya,sus,este,esta,ese,esa,muy,cuando,entre,sobre,todo,cada,vez,hay,tanto,sin,hasta,desde,antes,aunque,porque,sino,ni,mientras,mismo,otro,algo,nada,aqui,ahora,hacia,pues,les,nos,haber,sido,habia,dijo,entonces,veces,menos,nunca,siempre,también,tan,más,él,ella,así,solo,bien,poco,gran,todos,toda,todas'.split(','));
+  const ctxt=(getTxt()||'').toLowerCase(),cw=ctxt.match(/[a-záéíóúñü]{4,}/g)||[];
+  const tf={};cw.forEach(w=>{tf[w]=(tf[w]||0)+1;});
+  const df={};(B.texts||[]).forEach(t=>{new Set((t||'').toLowerCase().match(/[a-záéíóúñü]{4,}/g)||[]).forEach(w=>{df[w]=(df[w]||0)+1;});});
+  const N=Math.max(1,(B.texts||[]).length),sc={};
+  Object.entries(tf).forEach(([w,f])=>{if(!STOP.has(w))sc[w]=(f/Math.max(1,cw.length))*Math.log((N+1)/((df[w]||0)+1));});
+  return new Set(Object.entries(sc).sort((a,b)=>b[1]-a[1]).slice(0,40).map(([w])=>w));
+}
+
+// Known place suffixes / patterns and common place names
+const PLACE_SUFFIXES=/(?:burg|berg|abad|abad|stan|land|heim|ford|shire|ville|town|city|ópolis|polis|grad|grado|burgo|burg|dorf|furt|berg|bach|wald|hausen|ingen|kirch|stein|burg|dorf|furt)$/i;
+const KNOWN_PLACES=new Set('Madrid,Barcelona,Sevilla,Valencia,Bilbao,Toledo,Córdoba,Granada,Zaragoza,Málaga,Murcia,Pamplona,Salamanca,Burgos,León,Cádiz,Huelva,Jaén,Almería,Vitoria,Oviedo,Santander,Logroño,Mérida,Badajoz,Cáceres,Albacete,Cuenca,Guadalajara,Segovia,Ávila,Soria,Teruel,Huesca,Gerona,Lérida,Tarragona,Palma,Ibiza,Menorca,Tenerife,Fuerteventura,Lanzarote,París,Londres,Roma,Berlín,Moscú,Lisboa,Atenas,Bruselas,Ámsterdam,Viena,Praga,Varsovia,Budapest,Bucarest,Sofía,Zagreb,Belgrado,Sarajevo,Dubrovnik,Venecia,Florencia,Nápoles,Milán,Génova,Turín,Bolonia,Pisa,Nueva,York,Chicago,Boston,Miami,Houston,Dallas,Washington,Angeles,Francisco,Seattle,Denver,Atlanta,Detroit,Filadelfia,Phoenix,Memphis,Portland,Tokio,Pekín,Shanghái,Seúl,Bangkok,Singapur,Bombay,Mumbai,Delhi,Calcuta,Karachi,Lahore,Dhaka,Kabul,Teherán,Bagdad,Riad,Dubái,Kuwait,Beirut,Damasco,Jerusalén,Cairo,Alejandría,Túnez,Argel,Casablanca,Rabat,Lagos,Nairobi,Johannesburgo,Kinshasa,Addis,Abeba,Kampala,Dakar,Accra,Abiyán,Dar,Salaam,Luanda,México,Guadalajara,Monterrey,Puebla,Tijuana,Bogotá,Medellín,Cali,Lima,Santiago,Buenos,Aires,Montevideo,Caracas,Quito,Asunción,Brasilia,Paulo,Janeiro,Galilea,Judea,Samaria,Belén,Nazaret,Jericó,Cafarnaún,Caná,Betania,Getsemaní,Gólgota,Sinaí,Egipto,Babilonia,Nínive,Nilo,Éufrates,Tigris,Jordán,Tiberiades,Mediterráneo,Atlántico,Pacífico,Índico,Ártico,Antártico,Sahara,Himalaya,Andes,Alpes,Pirineos,Cantábrico,Atlántico,Ebro,Tajo,Duero,Guadalquivir,Tíber,Sena,Rin,Danubio,Volga,Nilo,Amazonas,Orinoco,Paraná,Congo,Misisipi,Colorado,Pampas,Castilla,Aragón,Cataluña,Andalucía,Extremadura,Navarra,Asturias,Cantabria,Galicia,Murcia,Mancha,Rioja,Bretaña,Normandía,Borgoña,Provenza,Toscana,Lombardía,Sicilia,Baviera,Sajonia,Prusia,Anatolia,Mesopotamia,Persia,Arabia,Palestina,Fenicia,Cartago,Numidia,Hispania,Galia,Germania,Britania,Escandinavia,Balkanes'.split(','));
+
+function pgCalcNm(){
+  if(!B)return new Set();
+  const STOPC=new Set('El,La,Los,Las,Un,Una,Todo,Todos,Este,Esta,Ese,Esa,También,Pero,Como,Para,Cuando,Donde,Más,Muy,Bien,Gran,Solo,Cada,Otro,Otra,Señor,Señora,Don,Doña,Doctor,General,Capitán,Padre,Madre,Qué,Cómo,Quién,Dónde,Si,Por,Con,Sin,Ser,Hay,Era,Dios,Señor'.split(','));
+  const toks=(getTxt()||'').split(/\s+/);const cnt={};let ap=true;
+  toks.forEach(tok=>{
+    const cl=tok.replace(/[^a-zA-ZáéíóúñüÁÉÍÓÚÑÜ]/g,''),ip=/[.!?]$/.test(tok);
+    if(cl.length>=3&&/^[A-ZÁÉÍÓÚÑÜ]/.test(cl)&&!STOPC.has(cl)){
+      // Known places count from 1, others need 2 occurrences
+      if(!ap)cnt[cl]=(cnt[cl]||0)+1;
+      else if(KNOWN_PLACES.has(cl))cnt[cl]=(cnt[cl]||0)+0.5; // seen at sentence start
+    }
+    ap=ip||!cl;
+  });
+  return new Set(Object.entries(cnt).filter(([,n])=>n>=1.5).map(([w])=>w));
+}
+
+function pgCalcPlaces(){
+  if(!B)return new Set();
+  const txt=getTxt()||'';
+  const found=new Set();
+  // Known places from KNOWN_PLACES set — appear anywhere in text
+  KNOWN_PLACES.forEach(p=>{
+    const re=new RegExp('\\b'+p+'\\b');
+    if(re.test(txt))found.add(p);
+  });
+  // Also detect capitalized words that end in typical place suffixes
+  const toks=txt.split(/\s+/);
+  toks.forEach(tok=>{
+    const cl=tok.replace(/[^a-zA-ZáéíóúñüÁÉÍÓÚÑÜ]/g,'');
+    if(cl.length>=4&&/^[A-ZÁÉÍÓÚÑÜ]/.test(cl)&&PLACE_SUFFIXES.test(cl))found.add(cl);
+  });
+  // Remove any that are already in pgNms (persons take precedence)
+  pgNms.forEach(n=>found.delete(n));
+  return found;
+}
+
+function pgCls(w,i,fi){
+  const lo=w.toLowerCase().replace(/[^a-záéíóúñü]/g,''),cl=w.replace(/[^a-zA-ZáéíóúñüÁÉÍÓÚÑÜ]/g,'');
+  let c='pw';
+  if(i<fi)c+=' read';else if(i===fi)c+=' hl';
+  if(pgHlKw&&pgKws.has(lo))c+=' kwh';
+  if(pgHlNm&&pgNms.has(cl))c+=' nmh';
+  if(pgHlNm&&pgPls.has(cl))c+=' plh';
+  return c;
+}
+
+function pgEsc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function pgRender(fi){
+  const pg=document.getElementById('pg-txt');
+  if(!pgToks.length){pg.innerHTML='<div style="color:var(--t3);text-align:center;padding:40px">Sin texto</div>';return;}
+  let h='',po=false,pi=-1;
+  pgToks.forEach((t,i)=>{
+    if(t.br){if(po){h+='</span>';po=false;}return;}
+    if(t.p!==pi){if(po)h+='</span>';h+='<span class="pp">';po=true;pi=t.p;}
+    h+='<span class="'+pgCls(t.w,i,fi)+'" id="pw'+i+'" onclick="pgSeek('+i+')"> '+pgEsc(t.w)+'</span>';
+  });
+  if(po)h+='</span>';pg.innerHTML=h;pgScrollTo(fi);
+}
+
+function pgHL(ni){
+  const prev=document.getElementById('pw'+pgWi);
+  if(prev&&pgToks[pgWi])prev.className=pgCls(pgToks[pgWi].w,pgWi,ni);
+  pgWi=ni;
+  const cur=document.getElementById('pw'+pgWi);
+  if(cur&&pgToks[pgWi]){cur.className=pgCls(pgToks[pgWi].w,pgWi,pgWi);pgScrollTo(pgWi);}
+  pgProg();
+}
+
+function pgScrollTo(i){
+  const el=document.getElementById('pw'+i);if(!el)return;
+  const r=el.getBoundingClientRect(),sb=window.innerHeight-145;
+  if(r.bottom>sb)window.scrollBy({top:r.bottom-sb+50,behavior:'smooth'});
+}
+
+function pgTick(){
+  if(!pgPlay_)return;
+  let n=pgWi+1;while(n<pgToks.length&&pgToks[n]&&pgToks[n].br)n++;
+  if(n>=pgToks.length){pgPlay_=false;document.getElementById('pg-play').textContent='▶';
+    const msg=document.createElement('div');msg.style.cssText='text-align:center;padding:30px 0 160px;font-size:14px;color:var(--t3)';
+    msg.textContent='✓ Capítulo completado';document.getElementById('pg-txt').appendChild(msg);return;}
+  pgHL(n);pgTimer=setTimeout(pgTick,Math.round(60000/pgPPM));
+}
+
+function pgPlay(){
+  if(!B)return;
+  if(!pgToks.length)pgLoad();if(!pgToks.length)return;
+  pgPlay_=!pgPlay_;document.getElementById('pg-play').textContent=pgPlay_?'⏸':'▶';
+  if(pgPlay_)pgTick();else clearTimeout(pgTimer);
+}
+
+function pgSeek(i){
+  const wasP=pgPlay_;if(pgPlay_){clearTimeout(pgTimer);pgPlay_=false;}
+  pgHL(i);if(wasP){pgPlay_=true;pgTick();}
+  document.getElementById('pg-play').textContent=pgPlay_?'⏸':'▶';
+}
+
+function pgTrkClick(e){
+  const t=e.currentTarget,r=t.getBoundingClientRect(),pct=(e.clientX-r.left)/r.width;
+  const real=pgToks.filter(t=>!t.br),tw=Math.max(0,Math.min(Math.round(pct*real.length),real.length-1));
+  let cnt=0,idx=0;for(let i=0;i<pgToks.length;i++){if(!pgToks[i].br){if(cnt===tw){idx=i;break;}cnt++;}}
+  pgSeek(idx);
+}
+
+function pgAdj(d){pgPPM=Math.min(500,Math.max(60,pgPPM+d));pgShowPPM();}
+function pgAdj2(v){pgPPM=v;pgShowPPM();}
+function pgShowPPM(){const s=document.getElementById('pg-spv'),sl=document.getElementById('pg-spsl');if(s)s.textContent=pgPPM+' PPM';if(sl)sl.value=pgPPM;}
+function pgSz(px,btn){document.querySelectorAll('.pgszb').forEach(b=>b.classList.remove('on'));btn.classList.add('on');document.getElementById('pg-txt').style.fontSize=px+'px';}
+function pgHl(t){
+  if(t==='kw'){pgHlKw=!pgHlKw;document.getElementById('hltog-kw').classList.toggle('on',pgHlKw);}
+  else{pgHlNm=!pgHlNm;document.getElementById('hltog-nm').classList.toggle('on',pgHlNm);}
+  pgRender(pgWi);
+}
+function pgProg(){
+  const tot=pgToks.filter(t=>!t.br).length||1,d=pgToks.slice(0,pgWi).filter(t=>!t.br).length,pct=Math.round(d/tot*100);
+  document.getElementById('pg-fill2').style.width=pct+'%';document.getElementById('pg-pct2').textContent=pct+'%';
+}
+
+buildHgrid();
+</script>
+</body>
+</html>
