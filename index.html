@@ -888,15 +888,38 @@ async function loadEpub(file){
   return mkBook(ti,au,splitTxt(all));
 }
 function splitTxt(text){
-  const parts=text.split(/\n\s*(?:cap[íi]tulo\s+[\divxlcIVXLC]+|chapter\s+\d+)/gi);
+  // Patrón amplio: Capítulo/Chapter/Chapitre/Parte/Part/Book + número o numeral romano
+  const chapRx=/\n[\s\u00a0]*(?:cap[íi]tulo|chapter|chapitre|parte|part(?:e)?|libro|book|secci[oó]n|section|titre|título|hoofdstuk|abschnitt|глава)\s+[\divxlcIVXLC\u2160-\u2188]+[^\n]*/gi;
+  // También detectar líneas que son solo un número o "I.", "II.", "1.", etc.
+  const numRx=/\n[\s\u00a0]*(?:[IVXLC]{1,6}\.?|[0-9]{1,3}\.)\s*\n/g;
+  
+  let splits=[];
+  let m;
+  const rx2=new RegExp(chapRx.source,'gi');
+  while((m=rx2.exec(text))!==null) splits.push({pos:m.index,label:m[0].trim()});
+  
+  if(splits.length<2){
+    const rx3=new RegExp(numRx.source,'g');
+    while((m=rx3.exec(text))!==null) splits.push({pos:m.index,label:m[0].trim()});
+  }
+  
   let chs=[];
-  parts.forEach((p,i)=>{const c=p.replace(/\s+/g,' ').trim();if(c.split(' ').length>=40)chs.push({label:String(i),text:c});});
+  if(splits.length>=2){
+    splits.sort((a,b)=>a.pos-b.pos);
+    splits.forEach((s,i)=>{
+      const start=s.pos;
+      const end=splits[i+1]?splits[i+1].pos:text.length;
+      const c=text.slice(start,end).replace(/\s+/g,' ').trim();
+      if(c.split(' ').length>=20) chs.push({label:s.label.slice(0,60),text:c});
+    });
+  }
+  
   if(chs.length<2){const ww=text.replace(/\s+/g,' ').trim().split(' ');const sz=1800;for(let i=0;i<ww.length;i+=sz)chs.push({label:String(Math.floor(i/sz)+1),text:ww.slice(i,i+sz).join(' ')});}
   return chs;
 }
 function mkBook(title,author,raw){
   return{id:'u'+Date.now(),title,author,e:'📖',
-    meta:raw.map((c,i)=>({p:'Capítulos',n:c.label||String(i+1),title:c.label||'',w:c.text.split(' ').length})),
+    meta:raw.map((c,i)=>({p:'Capítulos',n:String(i+1),title:c.label||('Cap. '+(i+1)),w:c.text.split(' ').length})),
     texts:raw.map(c=>c.text)};
 }
 
