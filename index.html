@@ -435,8 +435,8 @@ function buildChl(){
   let h='';
   ord.forEach(p=>{
     const chs=grps[p],dc=chs.filter(c=>rs.has(c.i)).length,ic=chs.some(c=>c.i===C);
-    h+='<div><div class="ph" onclick="togP(this)"><span>'+p+'</span><span>'+dc+'/'+chs.length+' '+(ic?'▾':'▸')+'</span></div>'
-      +'<div class="pc'+(ic?'':' col')+'">';
+    h+='<div><div class="ph" onclick="togP(this)"><span>'+p+'</span><span>'+dc+'/'+chs.length+' ▾</span></div>'
+      +'<div class="pc">';
     chs.forEach(c=>{
       const d=rs.has(c.i),pc=pr[c.i]||0,ac=c.i===C;
       h+='<button class="ch'+(ac?' on':'')+'" onclick="goChap('+c.i+')">'
@@ -617,6 +617,7 @@ function finishChap(){
   if(lastReport){
     const m=B&&B.meta[C]||{};
     saveSession(lastReport,B.id,B.title,m.n||C+1,m.title||('Cap. '+(m.n||C+1)),null);
+    setTimeout(checkAchievements, 1500);
     saveBook(B.id,B.title,C,ws.length);
   }
   showFinishScreen();
@@ -776,7 +777,30 @@ function sessEnd(){
 function showReport(r){
   const hasN=B&&C<B.meta.length-1,fc=r.flu>=75?'var(--ok)':r.flu>=50?'#ffaa55':'#ff6060';
   const tips=genTips(r);
-  setWd('<div style="width:100%"><div style="text-align:center;padding:6px 0 14px">'
+  const sessions=lsGet('sl_sessions')||[];
+  const prev=sessions.length>=2?sessions[sessions.length-2]:null;
+  const best=sessions.reduce((b,s)=>s.ppm>b?s.ppm:b,0);
+  const isRecord=r.avgPPM>0&&r.avgPPM>=best&&sessions.length>1;
+  let compHtml='';
+  if(prev){
+    const diffPPM=r.avgPPM-prev.ppm,diffFlu=r.flu-prev.flu;
+    const ppmCol=diffPPM>=0?'var(--ok)':'#ff6060',fluCol=diffFlu>=0?'var(--ok)':'#ff6060';
+    compHtml='<div style="background:var(--s2);border:1px solid var(--b);border-radius:12px;padding:11px 13px;margin-bottom:8px">'
+      +'<div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:6px">📊 Vs sesión anterior</div>'
+      +'<div style="display:flex;gap:20px">'
+      +'<span style="font-size:13px;font-weight:600;color:'+ppmCol+'">'+(diffPPM>=0?'↑ +':'↓ ')+diffPPM+' PPM</span>'
+      +'<span style="font-size:13px;font-weight:600;color:'+fluCol+'">'+(diffFlu>=0?'↑ +':'↓ ')+diffFlu+'% fluidez</span>'
+      +'</div></div>';
+  }
+  const recordHtml=isRecord?'<div style="text-align:center;padding:8px;font-size:13px;color:var(--ok);font-weight:700">🏆 ¡Nuevo récord: '+r.avgPPM+' PPM!</div>':'';
+  const earned=lsGet('sl_achievements')||[];
+  const nextAch=ACHIEVEMENTS.find(a=>!earned.includes(a.id));
+  const nextHtml=nextAch?'<div style="background:var(--s2);border:1px solid var(--b);border-radius:12px;padding:11px 13px;margin-bottom:8px">'
+    +'<div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;margin-bottom:4px">🎯 Próximo logro</div>'
+    +'<div style="font-size:13px">'+nextAch.icon+' <b>'+nextAch.title+'</b><br><span style="font-size:11px;color:var(--t3)">'+nextAch.desc+'</span></div>'
+    +'</div>':'';
+  setWd('<div style="width:100%">'+recordHtml
+    +'<div style="text-align:center;padding:6px 0 14px">'
     +'<div style="font-size:10px;color:var(--t3);font-family:var(--fm);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">Capítulo completado</div>'
     +'<div style="display:flex;justify-content:center;gap:16px;font-family:var(--fm)">'
     +'<div style="text-align:center"><div style="font-size:20px;font-weight:600;color:var(--ac)">'+r.avgPPM+'</div><div style="font-size:10px;color:var(--t3)">PPM</div></div>'
@@ -784,8 +808,10 @@ function showReport(r){
     +'<div style="text-align:center"><div style="font-size:20px;font-weight:600;color:var(--t2)">'+fmt(r.dur)+'</div><div style="font-size:10px;color:var(--t3)">Tiempo</div></div>'
     +'<div style="text-align:center"><div style="font-size:20px;font-weight:600;color:'+(r.pauses>3?'#ffaa55':'var(--t2)')+'">'+r.pauses+'</div><div style="font-size:10px;color:var(--t3)">Pausas</div></div>'
     +'</div></div>'
+    +compHtml
     +'<div style="border-top:1px solid var(--b);padding-top:10px;margin-bottom:12px">'
-    +'<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">💡 Consejos</div>'+tips+'</div>'
+    +'<div style="font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px">💡 Consejos personalizados</div>'+tips+'</div>'
+    +nextHtml
     +'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">'
     +(hasN?'<button class="rbp" onclick="goChap('+(C+1)+')">Siguiente →</button>':'<div style="font-size:14px;color:var(--ok)">🎉 Libro completado</div>')
     +'<button class="rbs2" onclick="doRestart()">↺ Releer</button></div></div>');
@@ -965,45 +991,64 @@ function closeStats(){ document.getElementById('statsht').classList.remove('on')
 
 async function loadStats(){
   const body = document.getElementById('statsBody');
-  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:13px">Cargando estadísticas...</div>';
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3);font-size:13px">Cargando...</div>';
+  const sessions = lsGet('sl_sessions')||[];
+  const booksData = lsGet('sl_books')||{};
+  const booksArr = Object.values(booksData);
+  renderStats(body, sessions, booksArr);
+}
 
-  if(!dbHandle){
-    // localStorage siempre disponible
-    dbHandle = true;
-  }
+// ── LOGROS SORPRESA ──
+const ACHIEVEMENTS=[
+  {id:'first_read',icon:'🌟',title:'¡Primera lectura!',desc:'Completaste tu primera sesión',check:s=>s.length>=1},
+  {id:'speed_300',icon:'⚡',title:'¡Velocidad 300!',desc:'Superaste las 300 PPM',check:s=>s.some(x=>x.ppm>=300)},
+  {id:'speed_500',icon:'🚀',title:'¡Lector rápido!',desc:'Superaste las 500 PPM',check:s=>s.some(x=>x.ppm>=500)},
+  {id:'speed_1000',icon:'🔥',title:'¡Velocidad élite!',desc:'Superaste las 1000 PPM',check:s=>s.some(x=>x.ppm>=1000)},
+  {id:'sessions_5',icon:'📚',title:'¡5 sesiones!',desc:'Has leído 5 veces',check:s=>s.length>=5},
+  {id:'sessions_20',icon:'🏆',title:'¡20 sesiones!',desc:'Un lector dedicado',check:s=>s.length>=20},
+  {id:'sessions_50',icon:'👑',title:'¡50 sesiones!',desc:'Eres un maestro lector',check:s=>s.length>=50},
+  {id:'fluency_90',icon:'💎',title:'¡Fluidez perfecta!',desc:'90% de fluidez en una sesión',check:s=>s.some(x=>x.flu>=90)},
+  {id:'chaps_10',icon:'🗺️',title:'¡10 capítulos!',desc:'Has leído 10 capítulos',check:s=>s.length>=10},
+  {id:'streak_3',icon:'🔆',title:'¡3 días seguidos!',desc:'Leíste 3 días consecutivos',check:s=>{
+    if(s.length<3)return false;
+    const days=[...new Set(s.map(x=>new Date(x.ts).toDateString()))];
+    return days.length>=3;
+  }},
+];
 
-  if(!dbHandle){
-    body.innerHTML = '<div style="padding:20px;font-size:13px;color:var(--t3);text-align:center">Base de datos no disponible en este entorno.</div>';
-    return;
-  }
+function checkAchievements(){
+  const sessions=lsGet('sl_sessions')||[];
+  const earned=lsGet('sl_achievements')||[];
+  ACHIEVEMENTS.forEach(a=>{
+    if(!earned.includes(a.id)&&a.check(sessions)){
+      earned.push(a.id);
+      lsSet('sl_achievements',earned);
+      setTimeout(()=>showAchievement(a),500+Math.random()*1000);
+    }
+  });
+}
 
-  if(!userId){
-    body.innerHTML = '<div style="padding:20px;font-size:13px;color:var(--t3);text-align:center">Inicia sesión en Claude para ver estadísticas.</div>';
-    return;
-  }
-
-  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--t3)">Cargando sesiones...</div>';
-
-  try{
-    const sessCol = dbHandle.collection('users/'+userId+'/sessions');
-    const sessSnap = await sessCol.orderBy('ts','desc').limit(50).get();
-    const sessions = (sessSnap.docs||[]).map(d=>d.data());
-
-    const booksCol = dbHandle.collection('users/'+userId+'/books');
-    const booksSnap = await booksCol.get();
-    const books = (booksSnap.docs||[]).map(d=>d.data());
-
-    renderStats(body, sessions, books);
-  }catch(e){
-    body.innerHTML = '<div style="padding:16px;font-size:12px;color:#ff7070;font-family:monospace;word-break:break-all">'
-      +'Error: '+e.message+'<br><br>'
-      +'Stack: '+(e.stack||'').slice(0,200)+'</div>';
-  }
+function showAchievement(a){
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--s1);border:2px solid var(--ac);border-radius:16px;padding:14px 20px;z-index:999;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,.4);opacity:0;transition:all .4s;max-width:280px;pointer-events:none';
+  el.innerHTML='<div style="font-size:32px">'+a.icon+'</div><div style="font-weight:700;font-size:15px;margin:4px 0">'+a.title+'</div><div style="font-size:12px;color:var(--t3)">'+a.desc+'</div>';
+  document.body.appendChild(el);
+  setTimeout(()=>{el.style.opacity='1';el.style.transform='translateX(-50%) translateY(0)';},50);
+  setTimeout(()=>{el.style.opacity='0';setTimeout(()=>el.remove(),400);},4000);
 }
 
 function renderStats(body, sessions, books){
+  const earned=lsGet('sl_achievements')||[];
+  const achievementsHtml='<div style="padding:0 16px 16px"><div style="font-size:13px;font-weight:700;color:var(--t3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">🏅 Logros</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:8px">'
+    +ACHIEVEMENTS.map(a=>{
+      const got=earned.includes(a.id);
+      return '<div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--s1);border:1.5px solid '+(got?'var(--ac)':'var(--b)')+';border-radius:12px;opacity:'+(got?'1':'.35')+'"><span style="font-size:20px">'+(got?a.icon:'🔒')+'</span><div><div style="font-size:12px;font-weight:600">'+(got?a.title:'???')+'</div><div style="font-size:11px;color:var(--t3)">'+(got?a.desc:'???')+'</div></div></div>';
+    }).join('')
+    +'</div></div>';
+
   if(!sessions.length){
-    body.innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:32px;margin-bottom:12px">📚</div><div style="color:var(--t3);font-size:14px">Completa tu primer capítulo<br>para ver estadísticas.</div></div>';
+    body.innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:32px;margin-bottom:12px">📚</div><div style="color:var(--t3);font-size:14px">Completa tu primer capítulo<br>para ver estadísticas.</div></div>'+achievementsHtml;
     return;
   }
 
@@ -1060,7 +1105,8 @@ function renderStats(body, sessions, books){
     +'</div>'
     +(last10.length>1?'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:14px;margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px">📈 Evolución PPM</div><div style="display:flex;align-items:flex-end;gap:3px;height:90px">'+bars+'</div></div>':'')
     +(booksHTML?'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:14px;margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">🏆 Ranking de libros</div>'+booksHTML+'</div>':'')
-    +'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:14px"><div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">📖 Últimas sesiones</div>'+lastHTML+'</div>';
+    +'<div style="background:var(--s1);border:1px solid var(--b);border-radius:12px;padding:14px;margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px">📖 Últimas sesiones</div>'+lastHTML+'</div>'
+    +achievementsHtml;
 }
 
 initDB();
